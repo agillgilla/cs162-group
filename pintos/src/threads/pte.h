@@ -8,7 +8,7 @@
 
    See vaddr.h for more generic functions and macros for virtual
    addresses.
-   
+
    Virtual addresses are structured as follows:
 
     31                  22 21                  12 11                   0

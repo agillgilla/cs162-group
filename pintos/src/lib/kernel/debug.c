@@ -26,7 +26,7 @@ debug_panic (const char *file, int line, const char *function,
   console_panic ();
 
   level++;
-  if (level == 1) 
+  if (level == 1)
     {
       printf ("Kernel PANIC at %s:%d in %s(): ", file, line, function);
 
@@ -40,7 +40,7 @@ debug_panic (const char *file, int line, const char *function,
   else if (level == 2)
     printf ("Kernel PANIC recursion at %s:%d in %s().\n",
             file, line, function);
-  else 
+  else
     {
       /* Don't print anything: that's probably why we recursed. */
     }
@@ -59,15 +59,15 @@ print_stacktrace(struct thread *t, void *aux UNUSED)
   const char *status = "UNKNOWN";
 
   switch (t->status) {
-    case THREAD_RUNNING:  
+    case THREAD_RUNNING:
       status = "RUNNING";
       break;
 
-    case THREAD_READY:  
+    case THREAD_READY:
       status = "READY";
       break;
 
-    case THREAD_BLOCKED:  
+    case THREAD_BLOCKED:
       status = "BLOCKED";
       break;
 
@@ -77,7 +77,7 @@ print_stacktrace(struct thread *t, void *aux UNUSED)
 
   printf ("Call stack of thread `%s' (status %s):", t->name, status);
 
-  if (t == thread_current()) 
+  if (t == thread_current())
     {
       frame = __builtin_frame_address (1);
       retaddr = __builtin_return_address (0);
@@ -92,8 +92,8 @@ print_stacktrace(struct thread *t, void *aux UNUSED)
 
       /* Skip threads if they have been added to the all threads
          list, but have never been scheduled.
-         We can identify because their `stack' member either points 
-         at the top of their kernel stack page, or the 
+         We can identify because their `stack' member either points
+         at the top of their kernel stack page, or the
          switch_threads_frame's 'eip' member points at switch_entry.
          See also threads.c. */
       if (t->stack == (uint8_t *)t + PGSIZE || saved_frame->eip == switch_entry)

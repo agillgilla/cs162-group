@@ -28,18 +28,18 @@ static intr_handler_func keyboard_interrupt;
 
 /* Initializes the keyboard. */
 void
-kbd_init (void) 
+kbd_init (void)
 {
   intr_register_ext (0x21, keyboard_interrupt, "8042 Keyboard");
 }
 
 /* Prints keyboard statistics. */
 void
-kbd_print_stats (void) 
+kbd_print_stats (void)
 {
   printf ("Keyboard: %lld keys pressed\n", key_cnt);
 }
-
+
 /* Maps a set of contiguous scancodes into characters. */
 struct keymap
   {
@@ -48,11 +48,11 @@ struct keymap
                                    chars[1] has scancode first_scancode + 1,
                                    and so on to the end of the string. */
   };
-  
+
 /* Keys that produce the same characters regardless of whether
    the Shift keys are down.  Case of letters is an exception
    that we handle elsewhere.  */
-static const struct keymap invariant_keymap[] = 
+static const struct keymap invariant_keymap[] =
   {
     {0x01, "\033"},             /* Escape. */
     {0x0e, "\b"},
@@ -68,7 +68,7 @@ static const struct keymap invariant_keymap[] =
 
 /* Characters for keys pressed without Shift, for those keys
    where it matters. */
-static const struct keymap unshifted_keymap[] = 
+static const struct keymap unshifted_keymap[] =
   {
     {0x02, "1234567890-="},
     {0x1a, "[]"},
@@ -77,10 +77,10 @@ static const struct keymap unshifted_keymap[] =
     {0x33, ",./"},
     {0, NULL},
   };
-  
+
 /* Characters for keys pressed with Shift, for those keys where
    it matters. */
-static const struct keymap shifted_keymap[] = 
+static const struct keymap shifted_keymap[] =
   {
     {0x02, "!@#$%^&*()_+"},
     {0x1a, "{}"},
@@ -93,7 +93,7 @@ static const struct keymap shifted_keymap[] =
 static bool map_key (const struct keymap[], unsigned scancode, uint8_t *);
 
 static void
-keyboard_interrupt (struct intr_frame *args UNUSED) 
+keyboard_interrupt (struct intr_frame *args UNUSED)
 {
   /* Status of shift keys. */
   bool shift = left_shift || right_shift;
@@ -120,7 +120,7 @@ keyboard_interrupt (struct intr_frame *args UNUSED)
   code &= ~0x80u;
 
   /* Interpret key. */
-  if (code == 0x3a) 
+  if (code == 0x3a)
     {
       /* Caps Lock. */
       if (!release)
@@ -131,7 +131,7 @@ keyboard_interrupt (struct intr_frame *args UNUSED)
            || (shift && map_key (shifted_keymap, code, &c)))
     {
       /* Ordinary character. */
-      if (!release) 
+      if (!release)
         {
           /* Reboot if Ctrl+Alt+Del pressed. */
           if (c == 0177 && ctrl && alt)
@@ -139,10 +139,10 @@ keyboard_interrupt (struct intr_frame *args UNUSED)
 
           /* Handle Ctrl, Shift.
              Note that Ctrl overrides Shift. */
-          if (ctrl && c >= 0x40 && c < 0x60) 
+          if (ctrl && c >= 0x40 && c < 0x60)
             {
               /* A is 0x41, Ctrl+A is 0x01, etc. */
-              c -= 0x40; 
+              c -= 0x40;
             }
           else if (shift == caps_lock)
             c = tolower (c);
@@ -164,14 +164,14 @@ keyboard_interrupt (struct intr_frame *args UNUSED)
   else
     {
       /* Maps a keycode into a shift state variable. */
-      struct shift_key 
+      struct shift_key
         {
           unsigned scancode;
           bool *state_var;
         };
 
       /* Table of shift keys. */
-      static const struct shift_key shift_keys[] = 
+      static const struct shift_key shift_keys[] =
         {
           {  0x2a, &left_shift},
           {  0x36, &right_shift},
@@ -181,11 +181,11 @@ keyboard_interrupt (struct intr_frame *args UNUSED)
           {0xe01d, &right_ctrl},
           {0,      NULL},
         };
-  
+
       const struct shift_key *key;
 
       /* Scan the table. */
-      for (key = shift_keys; key->scancode != 0; key++) 
+      for (key = shift_keys; key->scancode != 0; key++)
         if (key->scancode == code)
           {
             *key->state_var = !release;
@@ -199,14 +199,14 @@ keyboard_interrupt (struct intr_frame *args UNUSED)
    true.
    If not found, returns false and C is ignored. */
 static bool
-map_key (const struct keymap k[], unsigned scancode, uint8_t *c) 
+map_key (const struct keymap k[], unsigned scancode, uint8_t *c)
 {
   for (; k->first_scancode != 0; k++)
     if (scancode >= k->first_scancode
-        && scancode < k->first_scancode + strlen (k->chars)) 
+        && scancode < k->first_scancode + strlen (k->chars))
       {
         *c = k->chars[scancode - k->first_scancode];
-        return true; 
+        return true;
       }
 
   return false;

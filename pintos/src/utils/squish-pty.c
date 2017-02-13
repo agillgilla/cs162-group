@@ -45,7 +45,7 @@ fail_io (const char *msg, ...)
 static void
 make_noncanon (int fd, int vmin, int vtime)
 {
-  if (isatty (fd)) 
+  if (isatty (fd))
     {
       struct termios termios;
       if (tcgetattr (fd, &termios) < 0)
@@ -61,7 +61,7 @@ make_noncanon (int fd, int vmin, int vtime)
 /* Make FD non-blocking if NONBLOCKING is true,
    or blocking if NONBLOCKING is false. */
 static void
-make_nonblocking (int fd, bool nonblocking) 
+make_nonblocking (int fd, bool nonblocking)
 {
   int flags = fcntl (fd, F_GETFL);
   if (flags < 0)
@@ -91,10 +91,10 @@ handle_error (ssize_t retval, int *fd, bool fd_is_pty, const char *call)
               *fd = -1;
             }
           else
-            fail_io (call); 
+            fail_io (call);
         }
     }
-  else 
+  else
     {
       if (retval == 0)
         {
@@ -109,9 +109,9 @@ handle_error (ssize_t retval, int *fd, bool fd_is_pty, const char *call)
 /* Copies data from stdin to PTY and from PTY to stdout until no
    more data can be read or written. */
 static void
-relay (int pty, int dead_child_fd) 
+relay (int pty, int dead_child_fd)
 {
-  struct pipe 
+  struct pipe
     {
       int in, out;
       char buf[BUFSIZ];
@@ -137,7 +137,7 @@ relay (int pty, int dead_child_fd)
   pipes[0].out = pty;
   pipes[1].in = pty;
   pipes[1].out = STDOUT_FILENO;
-  
+
   while (pipes[1].in != -1)
     {
       fd_set read_fds, write_fds;
@@ -155,33 +155,33 @@ relay (int pty, int dead_child_fd)
              too eager, Bochs will throw away our input. */
           if (i == 0 && !pipes[1].active)
             continue;
-          
+
           if (p->in != -1 && p->size + p->ofs < sizeof p->buf)
             FD_SET (p->in, &read_fds);
           if (p->out != -1 && p->size > 0)
-            FD_SET (p->out, &write_fds); 
+            FD_SET (p->out, &write_fds);
         }
       FD_SET (dead_child_fd, &read_fds);
 
-      do 
+      do
         {
-          retval = select (FD_SETSIZE, &read_fds, &write_fds, NULL, NULL); 
+          retval = select (FD_SETSIZE, &read_fds, &write_fds, NULL, NULL);
         }
       while (retval < 0 && errno == EINTR);
-      if (retval < 0) 
+      if (retval < 0)
         fail_io ("select");
 
       if (FD_ISSET (dead_child_fd, &read_fds))
         break;
 
-      for (i = 0; i < 2; i++) 
+      for (i = 0; i < 2; i++)
         {
           struct pipe *p = &pipes[i];
           if (p->in != -1 && FD_ISSET (p->in, &read_fds))
             {
               ssize_t n = read (p->in, p->buf + p->ofs + p->size,
                                 sizeof p->buf - p->ofs - p->size);
-              if (n > 0) 
+              if (n > 0)
                 {
                   p->active = true;
                   p->size += n;
@@ -194,10 +194,10 @@ relay (int pty, int dead_child_fd)
               else
                 handle_error (n, &p->in, p->in == pty, "read");
             }
-          if (p->out != -1 && FD_ISSET (p->out, &write_fds)) 
+          if (p->out != -1 && FD_ISSET (p->out, &write_fds))
             {
               ssize_t n = write (p->out, p->buf + p->ofs, p->size);
-              if (n > 0) 
+              if (n > 0)
                 {
                   p->ofs += n;
                   p->size -= n;
@@ -220,7 +220,7 @@ relay (int pty, int dead_child_fd)
         ssize_t n;
 
         /* Write buffer. */
-        while (p->size > 0) 
+        while (p->size > 0)
           {
             n = write (p->out, p->buf + p->ofs, p->size);
             if (n < 0)
@@ -241,7 +241,7 @@ relay (int pty, int dead_child_fd)
 static int dead_child_fd;
 
 static void
-sigchld_handler (int signo __attribute__ ((unused))) 
+sigchld_handler (int signo __attribute__ ((unused)))
 {
   if (write (dead_child_fd, "", 1) < 0)
     _exit (1);
@@ -257,7 +257,7 @@ main (int argc __attribute__ ((unused)), char *argv[])
   int pipe_fds[2];
   struct itimerval zero_itimerval, old_itimerval;
 
-  if (argc < 2) 
+  if (argc < 2)
     {
       fprintf (stderr,
                "usage: squish-pty COMMAND [ARG]...\n"
@@ -312,11 +312,11 @@ main (int argc __attribute__ ((unused)), char *argv[])
   memset (&zero_itimerval, 0, sizeof zero_itimerval);
   if (setitimer (ITIMER_VIRTUAL, &zero_itimerval, &old_itimerval) < 0)
     fail_io ("setitimer");
-  
+
   pid = fork ();
   if (pid < 0)
     fail_io ("fork");
-  else if (pid != 0) 
+  else if (pid != 0)
     {
       /* Running in parent process. */
       int status;
@@ -333,9 +333,9 @@ main (int argc __attribute__ ((unused)), char *argv[])
           else if (WIFSIGNALED (status))
             raise (WTERMSIG (status));
         }
-      return 0; 
+      return 0;
     }
-  else 
+  else
     {
       /* Running in child process. */
       if (setitimer (ITIMER_VIRTUAL, &old_itimerval, NULL) < 0)

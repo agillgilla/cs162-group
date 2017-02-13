@@ -23,7 +23,7 @@ static void rehash (struct hash *);
    compare hash elements using LESS, given auxiliary data AUX. */
 bool
 hash_init (struct hash *h,
-           hash_hash_func *hash, hash_less_func *less, void *aux) 
+           hash_hash_func *hash, hash_less_func *less, void *aux)
 {
   h->elem_cnt = 0;
   h->bucket_cnt = 4;
@@ -32,7 +32,7 @@ hash_init (struct hash *h,
   h->less = less;
   h->aux = aux;
 
-  if (h->buckets != NULL) 
+  if (h->buckets != NULL)
     {
       hash_clear (h, NULL);
       return true;
@@ -42,7 +42,7 @@ hash_init (struct hash *h,
 }
 
 /* Removes all the elements from H.
-   
+
    If DESTRUCTOR is non-null, then it is called for each element
    in the hash.  DESTRUCTOR may, if appropriate, deallocate the
    memory used by the hash element.  However, modifying hash
@@ -51,24 +51,24 @@ hash_init (struct hash *h,
    hash_replace(), or hash_delete(), yields undefined behavior,
    whether done in DESTRUCTOR or elsewhere. */
 void
-hash_clear (struct hash *h, hash_action_func *destructor) 
+hash_clear (struct hash *h, hash_action_func *destructor)
 {
   size_t i;
 
-  for (i = 0; i < h->bucket_cnt; i++) 
+  for (i = 0; i < h->bucket_cnt; i++)
     {
       struct list *bucket = &h->buckets[i];
 
-      if (destructor != NULL) 
-        while (!list_empty (bucket)) 
+      if (destructor != NULL)
+        while (!list_empty (bucket))
           {
             struct list_elem *list_elem = list_pop_front (bucket);
             struct hash_elem *hash_elem = list_elem_to_hash_elem (list_elem);
             destructor (hash_elem, h->aux);
           }
 
-      list_init (bucket); 
-    }    
+      list_init (bucket);
+    }
 
   h->elem_cnt = 0;
 }
@@ -84,7 +84,7 @@ hash_clear (struct hash *h, hash_action_func *destructor)
    undefined behavior, whether done in DESTRUCTOR or
    elsewhere. */
 void
-hash_destroy (struct hash *h, hash_action_func *destructor) 
+hash_destroy (struct hash *h, hash_action_func *destructor)
 {
   if (destructor != NULL)
     hash_clear (h, destructor);
@@ -94,25 +94,25 @@ hash_destroy (struct hash *h, hash_action_func *destructor)
 /* Inserts NEW into hash table H and returns a null pointer, if
    no equal element is already in the table.
    If an equal element is already in the table, returns it
-   without inserting NEW. */   
+   without inserting NEW. */
 struct hash_elem *
 hash_insert (struct hash *h, struct hash_elem *new)
 {
   struct list *bucket = find_bucket (h, new);
   struct hash_elem *old = find_elem (h, bucket, new);
 
-  if (old == NULL) 
+  if (old == NULL)
     insert_elem (h, bucket, new);
 
   rehash (h);
 
-  return old; 
+  return old;
 }
 
 /* Inserts NEW into hash table H, replacing any equal element
    already in the table, which is returned. */
 struct hash_elem *
-hash_replace (struct hash *h, struct hash_elem *new) 
+hash_replace (struct hash *h, struct hash_elem *new)
 {
   struct list *bucket = find_bucket (h, new);
   struct hash_elem *old = find_elem (h, bucket, new);
@@ -129,7 +129,7 @@ hash_replace (struct hash *h, struct hash_elem *new)
 /* Finds and returns an element equal to E in hash table H, or a
    null pointer if no equal element exists in the table. */
 struct hash_elem *
-hash_find (struct hash *h, struct hash_elem *e) 
+hash_find (struct hash *h, struct hash_elem *e)
 {
   return find_elem (h, find_bucket (h, e), e);
 }
@@ -145,33 +145,33 @@ struct hash_elem *
 hash_delete (struct hash *h, struct hash_elem *e)
 {
   struct hash_elem *found = find_elem (h, find_bucket (h, e), e);
-  if (found != NULL) 
+  if (found != NULL)
     {
       remove_elem (h, found);
-      rehash (h); 
+      rehash (h);
     }
   return found;
 }
 
 /* Calls ACTION for each element in hash table H in arbitrary
-   order. 
+   order.
    Modifying hash table H while hash_apply() is running, using
    any of the functions hash_clear(), hash_destroy(),
    hash_insert(), hash_replace(), or hash_delete(), yields
    undefined behavior, whether done from ACTION or elsewhere. */
 void
-hash_apply (struct hash *h, hash_action_func *action) 
+hash_apply (struct hash *h, hash_action_func *action)
 {
   size_t i;
-  
+
   ASSERT (action != NULL);
 
-  for (i = 0; i < h->bucket_cnt; i++) 
+  for (i = 0; i < h->bucket_cnt; i++)
     {
       struct list *bucket = &h->buckets[i];
       struct list_elem *elem, *next;
 
-      for (elem = list_begin (bucket); elem != list_end (bucket); elem = next) 
+      for (elem = list_begin (bucket); elem != list_end (bucket); elem = next)
         {
           next = list_next (elem);
           action (list_elem_to_hash_elem (elem), h->aux);
@@ -197,7 +197,7 @@ hash_apply (struct hash *h, hash_action_func *action)
    hash_replace(), or hash_delete(), invalidates all
    iterators. */
 void
-hash_first (struct hash_iterator *i, struct hash *h) 
+hash_first (struct hash_iterator *i, struct hash *h)
 {
   ASSERT (i != NULL);
   ASSERT (h != NULL);
@@ -230,7 +230,7 @@ hash_next (struct hash_iterator *i)
         }
       i->elem = list_elem_to_hash_elem (list_begin (i->bucket));
     }
-  
+
   return i->elem;
 }
 
@@ -238,21 +238,21 @@ hash_next (struct hash_iterator *i)
    null pointer at the end of the table.  Undefined behavior
    after calling hash_first() but before hash_next(). */
 struct hash_elem *
-hash_cur (struct hash_iterator *i) 
+hash_cur (struct hash_iterator *i)
 {
   return i->elem;
 }
 
 /* Returns the number of elements in H. */
 size_t
-hash_size (struct hash *h) 
+hash_size (struct hash *h)
 {
   return h->elem_cnt;
 }
 
 /* Returns true if H contains no elements, false otherwise. */
 bool
-hash_empty (struct hash *h) 
+hash_empty (struct hash *h)
 {
   return h->elem_cnt == 0;
 }
@@ -276,11 +276,11 @@ hash_bytes (const void *buf_, size_t size)
     hash = (hash * FNV_32_PRIME) ^ *buf++;
 
   return hash;
-} 
+}
 
 /* Returns a hash of string S. */
 unsigned
-hash_string (const char *s_) 
+hash_string (const char *s_)
 {
   const unsigned char *s = (const unsigned char *) s_;
   unsigned hash;
@@ -296,14 +296,14 @@ hash_string (const char *s_)
 
 /* Returns a hash of integer I. */
 unsigned
-hash_int (int i) 
+hash_int (int i)
 {
   return hash_bytes (&i, sizeof i);
 }
-
+
 /* Returns the bucket in H that E belongs in. */
 static struct list *
-find_bucket (struct hash *h, struct hash_elem *e) 
+find_bucket (struct hash *h, struct hash_elem *e)
 {
   size_t bucket_idx = h->hash (e, h->aux) & (h->bucket_cnt - 1);
   return &h->buckets[bucket_idx];
@@ -312,29 +312,29 @@ find_bucket (struct hash *h, struct hash_elem *e)
 /* Searches BUCKET in H for a hash element equal to E.  Returns
    it if found or a null pointer otherwise. */
 static struct hash_elem *
-find_elem (struct hash *h, struct list *bucket, struct hash_elem *e) 
+find_elem (struct hash *h, struct list *bucket, struct hash_elem *e)
 {
   struct list_elem *i;
 
-  for (i = list_begin (bucket); i != list_end (bucket); i = list_next (i)) 
+  for (i = list_begin (bucket); i != list_end (bucket); i = list_next (i))
     {
       struct hash_elem *hi = list_elem_to_hash_elem (i);
       if (!h->less (hi, e, h->aux) && !h->less (e, hi, h->aux))
-        return hi; 
+        return hi;
     }
   return NULL;
 }
 
 /* Returns X with its lowest-order bit set to 1 turned off. */
 static inline size_t
-turn_off_least_1bit (size_t x) 
+turn_off_least_1bit (size_t x)
 {
   return x & (x - 1);
 }
 
 /* Returns true if X is a power of 2, otherwise false. */
 static inline size_t
-is_power_of_2 (size_t x) 
+is_power_of_2 (size_t x)
 {
   return x != 0 && turn_off_least_1bit (x) == 0;
 }
@@ -349,7 +349,7 @@ is_power_of_2 (size_t x)
    condition, but that'll just make hash accesses less efficient;
    we can still continue. */
 static void
-rehash (struct hash *h) 
+rehash (struct hash *h)
 {
   size_t old_bucket_cnt, new_bucket_cnt;
   struct list *new_buckets, *old_buckets;
@@ -377,14 +377,14 @@ rehash (struct hash *h)
 
   /* Allocate new buckets and initialize them as empty. */
   new_buckets = malloc (sizeof *new_buckets * new_bucket_cnt);
-  if (new_buckets == NULL) 
+  if (new_buckets == NULL)
     {
       /* Allocation failed.  This means that use of the hash table will
          be less efficient.  However, it is still usable, so
          there's no reason for it to be an error. */
       return;
     }
-  for (i = 0; i < new_bucket_cnt; i++) 
+  for (i = 0; i < new_bucket_cnt; i++)
     list_init (&new_buckets[i]);
 
   /* Install new bucket info. */
@@ -392,14 +392,14 @@ rehash (struct hash *h)
   h->bucket_cnt = new_bucket_cnt;
 
   /* Move each old element into the appropriate new bucket. */
-  for (i = 0; i < old_bucket_cnt; i++) 
+  for (i = 0; i < old_bucket_cnt; i++)
     {
       struct list *old_bucket;
       struct list_elem *elem, *next;
 
       old_bucket = &old_buckets[i];
       for (elem = list_begin (old_bucket);
-           elem != list_end (old_bucket); elem = next) 
+           elem != list_end (old_bucket); elem = next)
         {
           struct list *new_bucket
             = find_bucket (h, list_elem_to_hash_elem (elem));
@@ -414,7 +414,7 @@ rehash (struct hash *h)
 
 /* Inserts E into BUCKET (in hash table H). */
 static void
-insert_elem (struct hash *h, struct list *bucket, struct hash_elem *e) 
+insert_elem (struct hash *h, struct list *bucket, struct hash_elem *e)
 {
   h->elem_cnt++;
   list_push_front (bucket, &e->list_elem);
@@ -422,7 +422,7 @@ insert_elem (struct hash *h, struct list *bucket, struct hash_elem *e)
 
 /* Removes E from hash table H. */
 static void
-remove_elem (struct hash *h, struct hash_elem *e) 
+remove_elem (struct hash *h, struct hash_elem *e)
 {
   h->elem_cnt--;
   list_remove (&e->list_elem);

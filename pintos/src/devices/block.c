@@ -210,7 +210,7 @@ block_register (const char *name, enum block_type type,
 
   return block;
 }
-
+
 /* Returns the block device corresponding to LIST_ELEM, or a null
    pointer if LIST_ELEM is the list end of all_blocks. */
 static struct block *

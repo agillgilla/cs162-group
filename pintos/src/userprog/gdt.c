@@ -52,7 +52,7 @@ gdt_init (void)
   asm volatile ("lgdt %0" : : "m" (gdtr_operand));
   asm volatile ("ltr %w0" : : "q" (SEL_TSS));
 }
-
+
 /* System segment or code/data segment? */
 enum seg_class
   {

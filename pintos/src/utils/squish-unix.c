@@ -48,7 +48,7 @@ fail_io (const char *msg, ...)
 static void
 make_noncanon (int fd, int vmin, int vtime)
 {
-  if (isatty (fd)) 
+  if (isatty (fd))
     {
       struct termios termios;
       if (tcgetattr (fd, &termios) < 0)
@@ -64,7 +64,7 @@ make_noncanon (int fd, int vmin, int vtime)
 /* Make FD non-blocking if NONBLOCKING is true,
    or blocking if NONBLOCKING is false. */
 static void
-make_nonblocking (int fd, bool nonblocking) 
+make_nonblocking (int fd, bool nonblocking)
 {
   int flags = fcntl (fd, F_GETFL);
   if (flags < 0)
@@ -96,15 +96,15 @@ handle_error (ssize_t retval, int *fd, bool fd_is_sock, const char *call)
         }
     }
   else
-    fail_io (call); 
+    fail_io (call);
 }
 
 /* Copies data from stdin to SOCK and from SOCK to stdout until no
    more data can be read or written. */
 static void
-relay (int sock) 
+relay (int sock)
 {
-  struct pipe 
+  struct pipe
     {
       int in, out;
       char buf[BUFSIZ];
@@ -131,7 +131,7 @@ relay (int sock)
   pipes[0].out = sock;
   pipes[1].in = sock;
   pipes[1].out = STDOUT_FILENO;
-  
+
   while (pipes[0].in != -1 || pipes[1].in != -1
          || (pipes[1].size && pipes[1].out != -1))
     {
@@ -151,16 +151,16 @@ relay (int sock)
              too eager, vmplayer will throw away our input. */
           if (i == 0 && !pipes[1].active)
             continue;
-          
+
           if (p->in != -1 && p->size + p->ofs < sizeof p->buf)
             FD_SET (p->in, &read_fds);
           if (p->out != -1 && p->size > 0)
-            FD_SET (p->out, &write_fds); 
+            FD_SET (p->out, &write_fds);
         }
       sigemptyset (&empty_set);
       retval = pselect (FD_SETSIZE, &read_fds, &write_fds, NULL, NULL,
                         &empty_set);
-      if (retval < 0) 
+      if (retval < 0)
         {
           if (errno == EINTR)
             {
@@ -169,12 +169,12 @@ relay (int sock)
               if (p->out == -1)
                 exit (0);
               make_nonblocking (STDOUT_FILENO, false);
-              for (;;) 
+              for (;;)
                 {
                   ssize_t n;
-                  
+
                   /* Write buffer. */
-                  while (p->size > 0) 
+                  while (p->size > 0)
                     {
                       n = write (p->out, p->buf + p->ofs, p->size);
                       if (n < 0)
@@ -191,17 +191,17 @@ relay (int sock)
                     exit (0);
                 }
             }
-          fail_io ("select"); 
+          fail_io ("select");
         }
 
-      for (i = 0; i < 2; i++) 
+      for (i = 0; i < 2; i++)
         {
           struct pipe *p = &pipes[i];
           if (p->in != -1 && FD_ISSET (p->in, &read_fds))
             {
               ssize_t n = read (p->in, p->buf + p->ofs + p->size,
                                 sizeof p->buf - p->ofs - p->size);
-              if (n > 0) 
+              if (n > 0)
                 {
                   p->active = true;
                   p->size += n;
@@ -214,10 +214,10 @@ relay (int sock)
               else if (!handle_error (n, &p->in, p->in == sock, "read"))
                 return;
             }
-          if (p->out != -1 && FD_ISSET (p->out, &write_fds)) 
+          if (p->out != -1 && FD_ISSET (p->out, &write_fds))
             {
               ssize_t n = write (p->out, p->buf + p->ofs, p->size);
-              if (n > 0) 
+              if (n > 0)
                 {
                   p->ofs += n;
                   p->size -= n;
@@ -232,7 +232,7 @@ relay (int sock)
 }
 
 static void
-sigchld_handler (int signo __attribute__ ((unused))) 
+sigchld_handler (int signo __attribute__ ((unused)))
 {
   /* Nothing to do. */
 }
@@ -245,8 +245,8 @@ main (int argc __attribute__ ((unused)), char *argv[])
   struct sockaddr_un sun;
   sigset_t sigchld_set;
   int sock;
-  
-  if (argc < 3) 
+
+  if (argc < 3)
     {
       fprintf (stderr,
                "usage: squish-unix SOCKET COMMAND [ARG]...\n"
@@ -289,15 +289,15 @@ main (int argc __attribute__ ((unused)), char *argv[])
   memset (&zero_itimerval, 0, sizeof zero_itimerval);
   if (setitimer (ITIMER_VIRTUAL, &zero_itimerval, NULL) < 0)
     fail_io ("setitimer");
-  
+
   pid = fork ();
   if (pid < 0)
     fail_io ("fork");
-  else if (pid != 0) 
+  else if (pid != 0)
     {
       /* Running in parent process. */
       make_nonblocking (sock, true);
-      for (;;) 
+      for (;;)
         {
           fd_set read_fds;
           sigset_t empty_set;
@@ -309,11 +309,11 @@ main (int argc __attribute__ ((unused)), char *argv[])
           FD_SET (sock, &read_fds);
           sigemptyset (&empty_set);
           retval = pselect (sock + 1, &read_fds, NULL, NULL, NULL, &empty_set);
-          if (retval < 0) 
+          if (retval < 0)
             {
               if (errno == EINTR)
                 break;
-              fail_io ("select"); 
+              fail_io ("select");
             }
 
           /* Accept connection. */
@@ -325,9 +325,9 @@ main (int argc __attribute__ ((unused)), char *argv[])
           relay (conn);
           close (conn);
         }
-      return 0; 
+      return 0;
     }
-  else 
+  else
     {
       /* Running in child process. */
       if (close (sock) < 0)
