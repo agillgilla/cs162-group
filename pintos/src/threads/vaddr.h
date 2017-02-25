@@ -39,7 +39,7 @@ static inline void *pg_round_up (const void *va) {
 static inline void *pg_round_down (const void *va) {
   return (void *) ((uintptr_t) va & ~PGMASK);
 }
-
+
 /* Base address of the 1:1 physical-to-virtual mapping.  Physical
    memory is mapped starting at this virtual address.  Thus,
    physical address 0 is accessible at PHYS_BASE, physical
@@ -54,14 +54,14 @@ static inline void *pg_round_down (const void *va) {
 
 /* Returns true if VADDR is a user virtual address. */
 static inline bool
-is_user_vaddr (const void *vaddr) 
+is_user_vaddr (const void *vaddr)
 {
   return vaddr < PHYS_BASE;
 }
 
 /* Returns true if VADDR is a kernel virtual address. */
 static inline bool
-is_kernel_vaddr (const void *vaddr) 
+is_kernel_vaddr (const void *vaddr)
 {
   return vaddr >= PHYS_BASE;
 }

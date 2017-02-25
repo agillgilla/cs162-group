@@ -99,7 +99,7 @@ static void interrupt_handler (struct intr_frame *);
 
 /* Initialize the disk subsystem and detect disks. */
 void
-ide_init (void) 
+ide_init (void)
 {
   size_t chan_no;
 
@@ -110,7 +110,7 @@ ide_init (void)
 
       /* Initialize channel. */
       snprintf (c->name, sizeof c->name, "ide%zu", chan_no);
-      switch (chan_no) 
+      switch (chan_no)
         {
         case 0:
           c->reg_base = 0x1f0;
@@ -126,13 +126,13 @@ ide_init (void)
       lock_init (&c->lock);
       c->expecting_interrupt = false;
       sema_init (&c->completion_wait, 0);
- 
+
       /* Initialize devices. */
       for (dev_no = 0; dev_no < 2; dev_no++)
         {
           struct ata_disk *d = &c->devices[dev_no];
           snprintf (d->name, sizeof d->name,
-                    "hd%c", 'a' + chan_no * 2 + dev_no); 
+                    "hd%c", 'a' + chan_no * 2 + dev_no);
           d->channel = c;
           d->dev_no = dev_no;
           d->is_ata = false;
@@ -154,7 +154,7 @@ ide_init (void)
           identify_ata_device (&c->devices[dev_no]);
     }
 }
-
+
 /* Disk detection and identification. */
 
 static char *descramble_ata_string (char *, int size);
@@ -162,7 +162,7 @@ static char *descramble_ata_string (char *, int size);
 /* Resets an ATA channel and waits for any devices present on it
    to finish the reset. */
 static void
-reset_channel (struct channel *c) 
+reset_channel (struct channel *c)
 {
   bool present[2];
   int dev_no;
@@ -199,10 +199,10 @@ reset_channel (struct channel *c)
   timer_msleep (150);
 
   /* Wait for device 0 to clear BSY. */
-  if (present[0]) 
+  if (present[0])
     {
       select_device (&c->devices[0]);
-      wait_while_busy (&c->devices[0]); 
+      wait_while_busy (&c->devices[0]);
     }
 
   /* Wait for device 1 to clear BSY. */
@@ -211,7 +211,7 @@ reset_channel (struct channel *c)
       int i;
 
       select_device (&c->devices[1]);
-      for (i = 0; i < 3000; i++) 
+      for (i = 0; i < 3000; i++)
         {
           if (inb (reg_nsect (c)) == 1 && inb (reg_lbal (c)) == 1)
             break;
@@ -227,7 +227,7 @@ reset_channel (struct channel *c)
    channel.  If D is device 1 (slave), the return value is not
    meaningful. */
 static bool
-check_device_type (struct ata_disk *d) 
+check_device_type (struct ata_disk *d)
 {
   struct channel *c = d->channel;
   uint8_t error, lbam, lbah, status;
@@ -244,12 +244,12 @@ check_device_type (struct ata_disk *d)
       || (status & STA_BSY) != 0)
     {
       d->is_ata = false;
-      return error != 0x81;      
+      return error != 0x81;
     }
-  else 
+  else
     {
       d->is_ata = (lbam == 0 && lbah == 0) || (lbam == 0x3c && lbah == 0xc3);
-      return true; 
+      return true;
     }
 }
 
@@ -257,7 +257,7 @@ check_device_type (struct ata_disk *d)
    response.  Registers the disk with the block device
    layer. */
 static void
-identify_ata_device (struct ata_disk *d) 
+identify_ata_device (struct ata_disk *d)
 {
   struct channel *c = d->channel;
   char id[BLOCK_SECTOR_SIZE];
@@ -313,7 +313,7 @@ identify_ata_device (struct ata_disk *d)
    format, into a null-terminated string in-place.  Drops
    trailing whitespace and null bytes.  Returns STRING.  */
 static char *
-descramble_ata_string (char *string, int size) 
+descramble_ata_string (char *string, int size)
 {
   int i;
 
@@ -330,13 +330,13 @@ descramble_ata_string (char *string, int size)
     {
       int c = string[size - 1];
       if (c != '\0' && !isspace (c))
-        break; 
+        break;
     }
   string[size] = '\0';
 
   return string;
 }
-
+
 /* Reads sector SEC_NO from disk D into BUFFER, which must have
    room for BLOCK_SECTOR_SIZE bytes.
    Internally synchronizes accesses to disks, so external
@@ -381,7 +381,7 @@ static struct block_operations ide_operations =
     ide_read,
     ide_write
   };
-
+
 /* Selects device D, waiting for it to become ready, and then
    writes SEC_NO to the disk's sector selection registers.  (We
    use LBA mode.) */
@@ -391,7 +391,7 @@ select_sector (struct ata_disk *d, block_sector_t sec_no)
   struct channel *c = d->channel;
 
   ASSERT (sec_no < (1UL << 28));
-  
+
   select_device_wait (d);
   outb (reg_nsect (c), 1);
   outb (reg_lbal (c), sec_no);
@@ -404,7 +404,7 @@ select_sector (struct ata_disk *d, block_sector_t sec_no)
 /* Writes COMMAND to channel C and prepares for receiving a
    completion interrupt. */
 static void
-issue_pio_command (struct channel *c, uint8_t command) 
+issue_pio_command (struct channel *c, uint8_t command)
 {
   /* Interrupts must be enabled or our semaphore will never be
      up'd by the completion handler. */
@@ -417,7 +417,7 @@ issue_pio_command (struct channel *c, uint8_t command)
 /* Reads a sector from channel C's data register in PIO mode into
    SECTOR, which must have room for BLOCK_SECTOR_SIZE bytes. */
 static void
-input_sector (struct channel *c, void *sector) 
+input_sector (struct channel *c, void *sector)
 {
   insw (reg_data (c), sector, BLOCK_SECTOR_SIZE / 2);
 }
@@ -425,11 +425,11 @@ input_sector (struct channel *c, void *sector)
 /* Writes SECTOR to channel C's data register in PIO mode.
    SECTOR must contain BLOCK_SECTOR_SIZE bytes. */
 static void
-output_sector (struct channel *c, const void *sector) 
+output_sector (struct channel *c, const void *sector)
 {
   outsw (reg_data (c), sector, BLOCK_SECTOR_SIZE / 2);
 }
-
+
 /* Low-level ATA primitives. */
 
 /* Wait up to 10 seconds for the controller to become idle, that
@@ -438,11 +438,11 @@ output_sector (struct channel *c, const void *sector)
    As a side effect, reading the status register clears any
    pending interrupt. */
 static void
-wait_until_idle (const struct ata_disk *d) 
+wait_until_idle (const struct ata_disk *d)
 {
   int i;
 
-  for (i = 0; i < 1000; i++) 
+  for (i = 0; i < 1000; i++)
     {
       if ((inb (reg_status (d->channel)) & (STA_BSY | STA_DRQ)) == 0)
         return;
@@ -457,16 +457,16 @@ wait_until_idle (const struct ata_disk *d)
    The ATA standards say that a disk may take as long as that to
    complete its reset. */
 static bool
-wait_while_busy (const struct ata_disk *d) 
+wait_while_busy (const struct ata_disk *d)
 {
   struct channel *c = d->channel;
   int i;
-  
+
   for (i = 0; i < 3000; i++)
     {
       if (i == 700)
         printf ("%s: busy, waiting...", d->name);
-      if (!(inb (reg_alt_status (c)) & STA_BSY)) 
+      if (!(inb (reg_alt_status (c)) & STA_BSY))
         {
           if (i >= 700)
             printf ("ok\n");
@@ -495,23 +495,23 @@ select_device (const struct ata_disk *d)
 /* Select disk D in its channel, as select_device(), but wait for
    the channel to become idle before and after. */
 static void
-select_device_wait (const struct ata_disk *d) 
+select_device_wait (const struct ata_disk *d)
 {
   wait_until_idle (d);
   select_device (d);
   wait_until_idle (d);
 }
-
+
 /* ATA interrupt handler. */
 static void
-interrupt_handler (struct intr_frame *f) 
+interrupt_handler (struct intr_frame *f)
 {
   struct channel *c;
 
   for (c = channels; c < channels + CHANNEL_CNT; c++)
     if (f->vec_no == c->irq)
       {
-        if (c->expecting_interrupt) 
+        if (c->expecting_interrupt)
           {
             inb (reg_status (c));               /* Acknowledge interrupt. */
             sema_up (&c->completion_wait);      /* Wake up waiter. */

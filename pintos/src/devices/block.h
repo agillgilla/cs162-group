@@ -17,7 +17,7 @@ typedef uint32_t block_sector_t;
 /* Format specifier for printf(), e.g.:
    printf ("sector=%"PRDSNu"\n", sector); */
 #define PRDSNu PRIu32
-
+
 /* Higher-level interface for file systems, etc. */
 
 struct block;
@@ -58,7 +58,7 @@ enum block_type block_type (struct block *);
 
 /* Statistics. */
 void block_print_stats (void);
-
+
 /* Lower-level interface to block device drivers. */
 
 struct block_operations

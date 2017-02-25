@@ -39,7 +39,7 @@ divl (uint64_t n, uint32_t d)
 /* Returns the number of leading zero bits in X,
    which must be nonzero. */
 static int
-nlz (uint32_t x) 
+nlz (uint32_t x)
 {
   /* This technique is portable, but there are better ways to do
      it on particular systems.  With sufficiently new enough GCC,
@@ -50,12 +50,12 @@ nlz (uint32_t x)
   if (x <= 0x0000FFFF)
     {
       n += 16;
-      x <<= 16; 
+      x <<= 16;
     }
   if (x <= 0x00FFFFFF)
     {
       n += 8;
-      x <<= 8; 
+      x <<= 8;
     }
   if (x <= 0x0FFFFFFF)
     {
@@ -65,7 +65,7 @@ nlz (uint32_t x)
   if (x <= 0x3FFFFFFF)
     {
       n += 2;
-      x <<= 2; 
+      x <<= 2;
     }
   if (x <= 0x7FFFFFFF)
     n++;
@@ -77,7 +77,7 @@ nlz (uint32_t x)
 static uint64_t
 udiv64 (uint64_t n, uint64_t d)
 {
-  if ((d >> 32) == 0) 
+  if ((d >> 32) == 0)
     {
       /* Proof of correctness:
 
@@ -105,23 +105,23 @@ udiv64 (uint64_t n, uint64_t d)
          Therefore, this code is correct and will not trap. */
       uint64_t b = 1ULL << 32;
       uint32_t n1 = n >> 32;
-      uint32_t n0 = n; 
+      uint32_t n0 = n;
       uint32_t d0 = d;
 
-      return divl (b * (n1 % d0) + n0, d0) + b * (n1 / d0); 
+      return divl (b * (n1 % d0) + n0, d0) + b * (n1 / d0);
     }
-  else 
+  else
     {
       /* Based on the algorithm and proof available from
          http://www.hackersdelight.org/revisions.pdf. */
       if (n < d)
         return 0;
-      else 
+      else
         {
           uint32_t d1 = d >> 32;
           int s = nlz (d1);
           uint64_t q = divl (n >> 1, (d << s) >> 32) >> (31 - s);
-          return n - (q - 1) * d < d ? q - 1 : q; 
+          return n - (q - 1) * d < d ? q - 1 : q;
         }
     }
 }
@@ -152,7 +152,7 @@ smod64 (int64_t n, int64_t d)
 {
   return n - d * sdiv64 (n, d);
 }
-
+
 /* These are the routines that GCC calls. */
 
 long long __divdi3 (long long n, long long d);
@@ -162,28 +162,28 @@ unsigned long long __umoddi3 (unsigned long long n, unsigned long long d);
 
 /* Signed 64-bit division. */
 long long
-__divdi3 (long long n, long long d) 
+__divdi3 (long long n, long long d)
 {
   return sdiv64 (n, d);
 }
 
 /* Signed 64-bit remainder. */
 long long
-__moddi3 (long long n, long long d) 
+__moddi3 (long long n, long long d)
 {
   return smod64 (n, d);
 }
 
 /* Unsigned 64-bit division. */
 unsigned long long
-__udivdi3 (unsigned long long n, unsigned long long d) 
+__udivdi3 (unsigned long long n, unsigned long long d)
 {
   return udiv64 (n, d);
 }
 
 /* Unsigned 64-bit remainder. */
 unsigned long long
-__umoddi3 (unsigned long long n, unsigned long long d) 
+__umoddi3 (unsigned long long n, unsigned long long d)
 {
   return umod64 (n, d);
 }

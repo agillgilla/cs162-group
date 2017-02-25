@@ -2,7 +2,7 @@
 #define __LIB_SYSCALL_NR_H
 
 /* System call numbers. */
-enum 
+enum
   {
     /* Projects 2 and later. */
     SYS_HALT,                   /* Halt the operating system. */
