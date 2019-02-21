@@ -157,10 +157,10 @@ timer ticks | R(A) | R(B) | R(C) | P(A) | P(B) | P(C) | thread to run
 12          |  12  |  0   |  0   |  61  |  62  |  60  |     B
 16          |  12  |  4   |  0   |  61  |  61  |  60  |     A
 20          |  16  |  4   |  0   |  60  |  61  |  60  |     B
-24          |  16  |  8   |  0   |  60  |  60  |  60  |    A
+24          |  16  |  8   |  0   |  60  |  60  |  60  |     A
 28          |  20  |  8   |  0   |  59  |  60  |  60  |     B
 32          |  20  |  12  |  0   |  59  |  59  |  60  |     C
 36          |  20  |  12  |  4   |  59  |  59  |  59  |     A
 
-3. *Which ambiguities were in #2 and what rules were used to resolve them?*
+3. The first ambiguity was that we didn't know the `TIMER_FREQ`, so we just assumed it was a value over 36 (which includes the entire table, so that implies that we will never have to update `load_avg` (which we initialize to 0) and `recent_cpu` except for incrementing on every timer tick.  There was also ambiguity about what thread we select when we have multiple priorities that are the same value.  We just decided to pick the alphabetically first thread (A, then B, then C) in this scenario.  We also assumed that the `PRI_MAX` was 64 as is usually is, because that wasn't specified either.
 
