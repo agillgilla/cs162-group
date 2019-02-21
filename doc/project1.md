@@ -134,6 +134,7 @@ This implementation described above seems like the most straightforward and simp
 1. 
 #### Test Case:
 Consider a scenario with 4 threads, `thread_1`, `thread_2`, `thread_3`, and `thread_4`, competing for 2 locks, `lock_1` and `lock_2`.  Since `sema_up(...)` is used in the lock release, this bug propagates to locks.  Here are the starting priorities for each thread:
+    
     thread_1: 1
     thread_2: 3
     thread_3: 4
