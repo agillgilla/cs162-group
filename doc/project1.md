@@ -137,7 +137,7 @@ Consider a scenario with 4 threads, `thread_1`, `thread_2`, `thread_3`, and `thr
     
     thread_1: 1
     thread_2: 3
-    thread_3: 4
+    thread_3: 2
     thread_4: 4
     
 At time 1, `thread_1` acquires `lock_1`.  Then, at time 2, `thread_3` acquires `lock_2`.  At the next timestep, `thread_4` tries to acquire `lock_2`, and thus bumps `thread_3`’s effective priority to 4.  Then `thread_3` tries to acquire `lock_1`, and propagates the effective priority it got from `thread_4` to `thread_1`, bumping its priority to 4.  Next, `thread_2` tries to acquire `lock_1`, and blocks on it since `thread_1` is still holding it.  Then, `thread_1` releases `lock_1` and the `sema_up(...)` chooses `thread_2` to hold `lock_1`, even though `thread_3` is waiting for `lock_1` and has higher effective priority (but it’s base priority is lower.)
