@@ -61,6 +61,9 @@ bool thread_mlfqs;
 
 static void kernel_thread (thread_func *, void *aux);
 
+/* Decorator for thread pirority comparator for list sorting */
+static list_less_func priority_comparator;
+
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
@@ -335,14 +338,24 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
+  /* Disable interrupts so we don't have any race conditions */
+  enum intr_level old_level = intr_disable();
+
+  thread_current ()->base_priority = new_priority;
+
+  /* Set our effective priority to our new base priority if the base is higher */
+  if (thread_current()->base_priority > thread_current()->effective_priority) {
+    thread_current()->effective_priority = thread_current()->base_priority;
+  }
+  
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void)
 {
-  return thread_current ()->priority;
+  return thread_current ()->effective_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -461,8 +474,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  t->priority = priority;
+  t->base_priority = priority;
+  t->effective_priority = priority;
   t->magic = THREAD_MAGIC;
+
+  list_init(&t->locks_held);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -482,6 +498,16 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
+/* Compares thread priorities, returns true if thread a has lower priority than thread b */
+static bool priority_comparator (const struct list_elem *a, const struct list_elem *b, void *aux) {
+  /* Get thread a from list elem */
+  struct thread *thread_a = list_entry(a, struct thread, elem);
+  /* Get thread b from list elem */
+  struct thread *thread_b = list_entry(b, struct thread, elem);
+
+  return (thread_a->effective_priority < thread_b->effective_priority);
+}
+
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is
    empty.  (If the running thread can continue running, then it
@@ -490,10 +516,19 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void)
 {
-  if (list_empty (&ready_list))
+  if (list_empty (&ready_list)) {
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  } else {
+    // OLD CODE
+    //return list_entry (list_pop_front (&ready_list), struct thread, elem);
+
+    /* Get the max priority element */
+    struct list_elem *thread_to_run = list_max(&ready_list, priority_comparator, NULL);
+    /* Remove the max priority thread from the list */
+    list_remove(thread_to_run);
+    /* Return the max priority thread */
+    return list_entry(thread_to_run, struct thread, elem);
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page
