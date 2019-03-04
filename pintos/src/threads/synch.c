@@ -113,9 +113,22 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters))
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
+
+  if (!list_empty(&sema->waiters)) {
+    //printf("%s%zd\n", "Num waiters: ", list_size(&sema->waiters));
+    /* Get the max priority waiter on the semaphore */
+    struct list_elem *max_priority_elem = list_max(&sema->waiters, priority_comparator, NULL);
+    /* Remove the max priority waiter from the waiters list */
+    list_remove(max_priority_elem);
+    /* Get the thread from the element */
+    struct thread *max_priority_waiter = list_entry(max_priority_elem, struct thread, elem);
+    /* Unblock the max priority thread waiting on the semaphore */
+    thread_unblock(max_priority_waiter);
+
+    //thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
+    //printf("%s%s%s%d\n", "Unblocking thread: ", max_priority_waiter->name, " with priority: ", max_priority_waiter->effective_priority);
+  }
+    
   sema->value++;
   intr_set_level (old_level);
 }
@@ -196,8 +209,64 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+  /* Disable interrupts */
+  enum intr_level curr_intr_level = intr_disable();
+  /* Get the thread requesting the lock (current running thread) */
+  struct thread *requester = thread_current();
+  /* Set the lock that the requester is waiting for */
+  requester->waiting_for = lock;
+  /* Try to acquire the lock, see it it is available */
+  bool available = sema_try_down(&lock->semaphore);
+
+  if (!available) {
+    /* Get the holder of the lock we want */
+    struct thread *curr_holder = lock->holder;
+
+    /* Donate priority (recursively) */
+    struct thread *to_donate = curr_holder;
+
+    while (to_donate != NULL) {
+      /* Check if we need to continue the chain of donations */
+      if (requester->effective_priority > to_donate->effective_priority) {
+        to_donate->effective_priority = requester->effective_priority;
+      } else {
+        break;
+      }
+      /* Update the next thread to donate priority to */
+      if (to_donate->waiting_for != NULL) {
+        to_donate = (to_donate->waiting_for)->holder;
+      } else {
+        break;
+      }
+    }
+    //printf("%s%s\n", requester->name, " is sleeping on the lock.");
+    /* Sleep on the lock until it is available */
+    sema_down(&lock->semaphore);
+  }
+  /* Set the lock holder to requester */
+  lock->holder = requester;
+  /* Add this lock to the requester's locks_held */
+  list_push_back(&requester->locks_held, &lock->held_elem);
+  /* We're no longer waiting on any locks */
+  requester->waiting_for = NULL;
+  
+  
+  /*struct sempahore *lock_semaphore = &(lock->semaphore);
+
+  if (!list_empty((lock_semaphore)->waiters)) {
+    // Get the highest priority waiter on the lock requester is now holding
+    struct list_elem *max_pri_elem = list_max(lock_semaphore->waiters, priority_comparator, NULL);
+    // Convert list_elem to thread
+    struct thread *max_waiter = list_entry(max_pri_elem, struct thread, elem);
+    // Set requester's effective priority to the priority of the max_waiter 
+    requester->effective_priority = max_waiter->effective_priority;
+  }*/
+  
+  /* Reset interrupt level */
+  intr_set_level(curr_intr_level);
+
+  //sema_down (&lock->semaphore);
+  //lock->holder = thread_current ();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -215,8 +284,11 @@ lock_try_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   success = sema_try_down (&lock->semaphore);
-  if (success)
-    lock->holder = thread_current ();
+  if (success) {
+    struct thread *acquirer = thread_current();
+    lock->holder = acquirer;
+    list_push_back(&acquirer->locks_held, &lock->held_elem);
+  }
   return success;
 }
 
@@ -231,8 +303,71 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  enum intr_level curr_intr_level = intr_disable();
+  /* Get the thread releasing the lock */
+  struct thread *releaser = thread_current();
+  /* Store the thread's initial priority for later */
+  int original_priority = releaser->effective_priority;
+  /* Set the holder of the lock to null */
   lock->holder = NULL;
-  sema_up (&lock->semaphore);
+  /* Remove the lock from locks_held */
+  list_remove(&lock->held_elem);
+  /* Up the lock semaphore */
+  sema_up(&lock->semaphore);
+  
+  /* Update releasing thread priority */
+  if (list_empty(&releaser->locks_held)) {
+    /* Reset effective priority to base priority if not holding any locks */
+    releaser->effective_priority = releaser->base_priority;
+  } else {
+    /* Iterate through all the locks we are holding, get the max priority of any waiter
+       on those locks, and make that our new priority */
+
+    /* list_elem to iterate through locks we are holding */
+    struct list_elem *curr_lock_elem = list_begin(&releaser->locks_held);
+    /* Variable for max waiter priority */
+    int max_waiter_priority = -1;
+    unsigned lock_hold_count = 0;
+    /* Iterate through locks we are holding */
+    while (curr_lock_elem != list_end(&releaser->locks_held)) {
+      lock_hold_count++;
+      /* Get the current lock as a struct */ 
+      struct lock *curr_lock = list_entry(curr_lock_elem, struct lock, held_elem);
+
+      if (!list_empty(&curr_lock->semaphore.waiters)) {
+        /* Get the max priority thread waiting on the lock */
+        struct thread *max_waiter = list_entry(list_max(&curr_lock->semaphore.waiters, priority_comparator, NULL), struct thread, elem);
+
+        //printf("%s%s\n", "Max waiter: ", max_waiter->name);
+        //printf("%s%d\n", "Max waiter priority on iteration was: ", max_waiter->effective_priority);
+        
+        /* Update the max waiter priority if it is higher */
+        if (max_waiter->effective_priority > max_waiter_priority) {
+          max_waiter_priority = max_waiter->effective_priority;
+        }
+      }
+      
+      /* Go to next element in locks_held list*/
+      curr_lock_elem = list_next(curr_lock_elem);
+    }
+    //printf("%s%s%s%d\n", "Thread: ", releaser->name, ", #Locks: ", lock_hold_count);
+    //printf("%s%d\n", "Final max waiter priority was: ", max_waiter_priority);
+    /* Update our current effective priority */
+    if (max_waiter_priority > releaser->base_priority) {
+      releaser->effective_priority = max_waiter_priority;
+      //printf("%s%d\n", "Releasing and resetting priority to: ", max_waiter_priority);
+    } else if (max_waiter_priority == -1) {
+      releaser->effective_priority = releaser->base_priority;
+    }
+  }
+  //printf("%s\n", "Just finished a release.  Cool beans, man");
+  /* Reset interrupt level to what it was */
+  intr_set_level(curr_intr_level);
+
+  /* Yield to CPU if our priority dropped */
+  if (original_priority > releaser->effective_priority && curr_intr_level == INTR_ON) {
+    thread_yield();
+  }
 }
 
 /* Returns true if the current thread holds LOCK, false

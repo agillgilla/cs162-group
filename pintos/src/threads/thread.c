@@ -61,9 +61,6 @@ bool thread_mlfqs;
 
 static void kernel_thread (thread_func *, void *aux);
 
-/* Decorator for thread pirority comparator for list sorting */
-static list_less_func priority_comparator;
-
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
@@ -204,6 +201,9 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  /* Yield to CPU so we can select thread with higher priority */
+  thread_yield();
+
   return tid;
 }
 
@@ -339,23 +339,34 @@ void
 thread_set_priority (int new_priority)
 {
   /* Disable interrupts so we don't have any race conditions */
-  enum intr_level old_level = intr_disable();
-
-  thread_current ()->base_priority = new_priority;
+  enum intr_level curr_intr_level = intr_disable();
+  /* Get the current running thread (to change the priority of) */
+  struct thread *curr_thread = thread_current();
+  /* Set base priority to arg given */
+  curr_thread->base_priority = new_priority;
 
   /* Set our effective priority to our new base priority if the base is higher */
-  if (thread_current()->base_priority > thread_current()->effective_priority) {
-    thread_current()->effective_priority = thread_current()->base_priority;
+  if (curr_thread->base_priority > curr_thread->effective_priority) {
+    curr_thread->effective_priority = curr_thread->base_priority;
+  } else {
+    /* Set our effective priority to our new base priority if not holding any locks */
+    if (list_empty(&curr_thread->locks_held)) {
+      curr_thread->effective_priority = curr_thread->base_priority;
+    } else {
+      
+    }
   }
-  
-  intr_set_level(old_level);
+  /* Reset interrupt level to what it was */
+  intr_set_level(curr_intr_level);
+
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void)
 {
-  return thread_current ()->effective_priority;
+  return thread_current()->effective_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -479,6 +490,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   list_init(&t->locks_held);
+  t->waiting_for = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -499,7 +511,7 @@ alloc_frame (struct thread *t, size_t size)
 }
 
 /* Compares thread priorities, returns true if thread a has lower priority than thread b */
-static bool priority_comparator (const struct list_elem *a, const struct list_elem *b, void *aux) {
+bool priority_comparator (const struct list_elem *a, const struct list_elem *b, void *aux) {
   /* Get thread a from list elem */
   struct thread *thread_a = list_entry(a, struct thread, elem);
   /* Get thread b from list elem */
@@ -516,7 +528,7 @@ static bool priority_comparator (const struct list_elem *a, const struct list_el
 static struct thread *
 next_thread_to_run (void)
 {
-  if (list_empty (&ready_list)) {
+  if (list_empty(&ready_list)) {
     return idle_thread;
   } else {
     // OLD CODE
@@ -526,6 +538,7 @@ next_thread_to_run (void)
     struct list_elem *thread_to_run = list_max(&ready_list, priority_comparator, NULL);
     /* Remove the max priority thread from the list */
     list_remove(thread_to_run);
+
     /* Return the max priority thread */
     return list_entry(thread_to_run, struct thread, elem);
   }
@@ -598,6 +611,8 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+
+  //printf("%s%s%s%d\n", "Choosing thread: ", next->name, " with priority: ", next->effective_priority);
 }
 
 /* Returns a tid to use for a new thread. */
