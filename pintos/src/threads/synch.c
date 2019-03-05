@@ -119,6 +119,14 @@ sema_up (struct semaphore *sema)
   /* Get the thread calling sema_down(...) */
   struct thread *downer = thread_current();
 
+  struct list_elem *waiter = list_begin(&sema->waiters);
+
+  while (waiter != list_end(&sema->waiters)) {
+    struct thread *waiter_thread = list_entry(waiter, struct thread, elem);
+    //printf("%s : %d\n", waiter_thread->name, waiter_thread->effective_priority);
+    waiter = list_next(waiter);
+  }
+
   if (!list_empty(&sema->waiters)) {
     //printf("%s%zd\n", "Num waiters: ", list_size(&sema->waiters));
     /* Get the max priority waiter on the semaphore */
@@ -378,7 +386,7 @@ lock_release (struct lock *lock)
   intr_set_level(curr_intr_level);
 
   /* Yield to CPU if our priority dropped */
-  if (original_priority > releaser->effective_priority && curr_intr_level == INTR_ON) {
+  if (original_priority > releaser->effective_priority) {
     thread_yield();
   }
 }
@@ -399,6 +407,7 @@ struct semaphore_elem
   {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
+    struct thread *waiting_thread;      /* Thread waiting on semaphore */
   };
 
 /* Initializes condition variable COND.  A condition variable
@@ -437,6 +446,8 @@ cond_wait (struct condition *cond, struct lock *lock)
 {
   struct semaphore_elem waiter;
 
+  waiter.waiting_thread = thread_current();
+
   ASSERT (cond != NULL);
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
@@ -464,9 +475,32 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters))
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
+  if (!list_empty (&cond->waiters)) {
+    /* Variable to store waiter while iterating through semaphore waiters */
+    struct list_elem *curr_waiter = list_begin(&cond->waiters);
+    /* Variable to store max priority waiter */
+    struct list_elem *max_waiter = curr_waiter;
+
+    while (curr_waiter != list_end(&cond->waiters)) {
+      /* Get the max waiter and current waiter threads */
+      struct thread *max_waiter_thread = list_entry(max_waiter, struct semaphore_elem, elem)->waiting_thread;
+      struct thread *curr_waiter_thread = list_entry(curr_waiter, struct semaphore_elem, elem)->waiting_thread;
+      /* Update the max waiter if we found it */
+      if (curr_waiter_thread->effective_priority > max_waiter_thread->effective_priority) {
+        max_waiter = curr_waiter;
+      }
+      /* Iterate through list */
+      curr_waiter = list_next(curr_waiter);
+    }
+    /* Remove waiter we are going to wake up from waiters list */
+    list_remove(max_waiter);
+    /* Call sema_up on the max waiter (it will be unblocked) */
+    sema_up (&list_entry (max_waiter, struct semaphore_elem, elem)->semaphore);
+
+    // OLD CODE:
+    //sema_up (&list_entry (list_pop_front (&cond->waiters), struct semaphore_elem, elem)->semaphore);
+  }
+    
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
