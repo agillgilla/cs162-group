@@ -114,6 +114,11 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
 
+  /* Variable to store the priority of the max priority waiter */
+  int max_waiter_priority = -1;
+  /* Get the thread calling sema_down(...) */
+  struct thread *downer = thread_current();
+
   if (!list_empty(&sema->waiters)) {
     //printf("%s%zd\n", "Num waiters: ", list_size(&sema->waiters));
     /* Get the max priority waiter on the semaphore */
@@ -122,6 +127,8 @@ sema_up (struct semaphore *sema)
     list_remove(max_priority_elem);
     /* Get the thread from the element */
     struct thread *max_priority_waiter = list_entry(max_priority_elem, struct thread, elem);
+    /* Save the priority of the max priority waiter we are unblocking */
+    max_waiter_priority = max_priority_waiter->effective_priority;
     /* Unblock the max priority thread waiting on the semaphore */
     thread_unblock(max_priority_waiter);
 
@@ -131,6 +138,12 @@ sema_up (struct semaphore *sema)
     
   sema->value++;
   intr_set_level (old_level);
+  /* Yield to the CPU if the the priority of the max priority waiter is more than the
+     priority of the thread that called sema_down(...).  I didn't think this was originally
+     necessary, but after changing this we are passing priority-sema and priority-donate-sema */
+  if (max_waiter_priority > downer->effective_priority) {
+    thread_yield();
+  }
 }
 
 static void sema_test_helper (void *sema_);
