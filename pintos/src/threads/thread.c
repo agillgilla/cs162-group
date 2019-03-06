@@ -59,6 +59,9 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+/* Variable for average load (in MLFQS computations) */
+static fixed_point_t load_avg;
+
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -93,8 +96,15 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
+  /* Initialize load_avg to 0 for MLFQS */
+  load_avg = fix_int(0);
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
+  /* Set the initial thread nice to 0 */
+  initial_thread->nice = fix_int(0);
+  /* Set the initial thread recent_cpu to 0 */
+  initial_thread->recent_cpu = fix_int(0);
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
@@ -123,6 +133,16 @@ void
 thread_tick (void)
 {
   struct thread *t = thread_current ();
+
+  /* TODO: Put MLFQS computation here:
+     - Increment recent_cpu
+     - Recalculate (and clamp) priorities of ALL threads on every fourth tick (timer_ticks() % 4 == 0)
+     - Update load_avg then recent_cpu (for all threads) once a second (timer_ticks() % TIMER_FREQ == 0)
+  */
+  if (thread_mlfqs) {
+
+
+  }
 
   /* Update statistics. */
   if (t == idle_thread)
@@ -485,12 +505,24 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+  /* Initialize base and effective priorities to argument passed */
   t->base_priority = priority;
   t->effective_priority = priority;
   t->magic = THREAD_MAGIC;
 
+  /* Initialize the list of locks held */
   list_init(&t->locks_held);
+  /* Initialize the lock we are waiting for to NULL */
   t->waiting_for = NULL;
+
+  /* Initialize nice and recent_cpu to parent's values for MLFQS */
+  t->nice = running_thread()->nice;
+  t->recent_cpu = running_thread()->recent_cpu;
+
+  /* TODO: Calculate the priority of the thread we are initalizing for MLFQS */
+  if (thread_mlfqs) {
+
+  }  
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

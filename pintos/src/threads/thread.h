@@ -105,6 +105,12 @@ struct thread
     /* Lock object that thread is currently waiting to acquire */
     struct lock *waiting_for;
 
+    /* Members for MLFQS */
+    fixed_point_t mlfqs_priority;
+    fixed_point_t nice;
+    fixed_point_t recent_cpu;
+
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
