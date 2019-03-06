@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -139,9 +140,33 @@ thread_tick (void)
      - Recalculate (and clamp) priorities of ALL threads on every fourth tick (timer_ticks() % 4 == 0)
      - Update load_avg then recent_cpu (for all threads) once a second (timer_ticks() % TIMER_FREQ == 0)
   */
+
   if (thread_mlfqs) {
+    if (t != idle_thread){
+      t -> recent_cpu = fix_add(t->recent_cpu, fix_int(1));
+    }
 
+    if (timer_ticks() % 4 == 0) {
+      struct list_elem *curr_thread_elem = list_front(&all_list);
 
+      while (curr_thread_elem != list_end(&all_list)) {
+
+        struct thread *curr_thread= list_entry(curr_thread_elem, struct thread, elem);
+        fixed_point_t curr_priority = fix_sub(fix_sub(fix_int(PRI_MAX), fix_div(curr_thread->recent_cpu, fix_int(4))), fix_mul(curr_thread->nice, fix_int(2)));
+        if (fix_compare(curr_priority, fix_int(PRI_MIN)) == -1) {
+          curr_priority = fix_int(PRI_MIN);
+        } else if (fix_compare(curr_priority, fix_int(PRI_MAX)) == 1) {
+          curr_priority = fix_int(PRI_MAX);
+        }
+        curr_thread->mlfqs_priority = curr_priority;
+        curr_thread_elem = list_next(curr_thread_elem);
+      }
+    }
+
+    if (timer_ticks() % TIMER_FREQ == 0){
+          load_avg = fix_add(fix_mul(fix_div(fix_int(59),fix_int(60)), load_avg), fix_mul(fix_div(fix_int(1), fix_int(60)),fix_int((int)list_size(&ready_list))));
+          t->recent_cpu = fix_add(fix_mul(fix_div(fix_mul(fix_int(2), load_avg), fix_add(fix_mul(fix_int(2), load_avg), fix_int(1))),t->recent_cpu), t->nice);
+    }
   }
 
   /* Update statistics. */
@@ -373,7 +398,7 @@ thread_set_priority (int new_priority)
     if (list_empty(&curr_thread->locks_held)) {
       curr_thread->effective_priority = curr_thread->base_priority;
     } else {
-      
+
     }
   }
   /* Reset interrupt level to what it was */
@@ -386,38 +411,38 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
+  if (thread_mlfqs) {
+    return fix_trunc(thread_current() -> mlfqs_priority);
+  }
   return thread_current()->effective_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED)
+thread_set_nice (int nice)
 {
-  /* Not yet implemented. */
+  thread_current() -> nice = fix_int(nice);
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return fix_trunc(thread_current() -> nice);
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return fix_trunc(fix_mul(load_avg, fix_int(100)));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return fix_trunc(fix_mul(thread_current() -> recent_cpu, fix_int(100)));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -521,8 +546,8 @@ init_thread (struct thread *t, const char *name, int priority)
 
   /* TODO: Calculate the priority of the thread we are initalizing for MLFQS */
   if (thread_mlfqs) {
-
-  }  
+    t->mlfqs_priority = fix_sub(fix_sub(fix_int(PRI_MAX), fix_div(t->recent_cpu, fix_int(4))), fix_mul(t->nice, fix_int(2)));
+  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
