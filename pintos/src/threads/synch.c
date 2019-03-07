@@ -129,10 +129,14 @@ sema_up (struct semaphore *sema)
     list_remove(max_priority_elem);
     /* Get the thread from the element */
     struct thread *max_priority_waiter = list_entry(max_priority_elem, struct thread, elem);
-    /* Save the priority of the max priority waiter we are unblocking */
-    max_waiter_priority = max_priority_waiter->effective_priority;
 
-    max_waiter_mlfqs_priority = max_priority_waiter->mlfqs_priority;
+    /* Save the priority of the max priority waiter we are unblocking */
+    if (!thread_mlfqs) {
+      max_waiter_priority = max_priority_waiter->effective_priority;
+    } else {
+      max_waiter_mlfqs_priority = max_priority_waiter->mlfqs_priority;
+    }
+    
     /* Unblock the max priority thread waiting on the semaphore */
     thread_unblock(max_priority_waiter);
 
@@ -391,7 +395,9 @@ lock_release (struct lock *lock)
   intr_set_level(curr_intr_level);
 
   /* Yield to CPU if our priority dropped */
-  if (original_priority > releaser->effective_priority) {
+  if (!thread_mlfqs && original_priority > releaser->effective_priority) {
+    thread_yield();
+  } else if (thread_mlfqs) {
     thread_yield();
   }
 }
