@@ -398,6 +398,7 @@ lock_release (struct lock *lock)
   if (!thread_mlfqs && original_priority > releaser->effective_priority) {
     thread_yield();
   } else if (thread_mlfqs) {
+    /* This line makes us pass mlfqs-block! */
     thread_yield();
   }
 }
