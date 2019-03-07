@@ -141,26 +141,26 @@ thread_tick (void)
      - Update load_avg then recent_cpu (for all threads) once a second (timer_ticks() % TIMER_FREQ == 0)
   */
 
-  if (timer_ticks() % 4 == 0) {
-    struct list_elem *curr_thread_elem = list_begin(&all_list);
-
-    while (curr_thread_elem != list_end(&all_list)) {
-
-      struct thread *curr_thread = list_entry(curr_thread_elem, struct thread, allelem);
-      fixed_point_t curr_priority = fix_sub(fix_sub(fix_int(PRI_MAX), fix_div(curr_thread->recent_cpu, fix_int(4))), fix_mul(curr_thread->nice, fix_int(2)));
-      if (fix_compare(curr_priority, fix_int(PRI_MIN)) == -1) {
-        curr_priority = fix_int(PRI_MIN);
-      } else if (fix_compare(curr_priority, fix_int(PRI_MAX)) == 1) {
-        curr_priority = fix_int(PRI_MAX);
-      }
-      curr_thread->mlfqs_priority = curr_priority;
-      curr_thread_elem = list_next(curr_thread_elem);
-    }
-  }
-
   if (thread_mlfqs) {
     if (t != idle_thread){
       t->recent_cpu = fix_add(t->recent_cpu, fix_int(1));
+    }
+
+    if (timer_ticks() % 4 == 0) {
+      struct list_elem *curr_thread_elem = list_begin(&all_list);
+
+      while (curr_thread_elem != list_end(&all_list)) {
+
+        struct thread *curr_thread = list_entry(curr_thread_elem, struct thread, allelem);
+        fixed_point_t curr_priority = fix_sub(fix_sub(fix_int(PRI_MAX), fix_div(curr_thread->recent_cpu, fix_int(4))), fix_mul(curr_thread->nice, fix_int(2)));
+        if (fix_compare(curr_priority, fix_int(PRI_MIN)) == -1) {
+          curr_priority = fix_int(PRI_MIN);
+        } else if (fix_compare(curr_priority, fix_int(PRI_MAX)) == 1) {
+          curr_priority = fix_int(PRI_MAX);
+        }
+        curr_thread->mlfqs_priority = curr_priority;
+        curr_thread_elem = list_next(curr_thread_elem);
+      }
     }
 
     if (timer_ticks() % TIMER_FREQ == 0) {
