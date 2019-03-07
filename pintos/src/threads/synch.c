@@ -116,10 +116,10 @@ sema_up (struct semaphore *sema)
 
   /* Variable to store the priority of the max priority waiter */
   int max_waiter_priority = -1;
+
+  fixed_point_t max_waiter_mlfqs_priority;
   /* Get the thread calling sema_down(...) */
   struct thread *downer = thread_current();
-
-  struct list_elem *waiter = list_begin(&sema->waiters);
 
   if (!list_empty(&sema->waiters)) {
     //printf("%s%zd\n", "Num waiters: ", list_size(&sema->waiters));
@@ -131,6 +131,8 @@ sema_up (struct semaphore *sema)
     struct thread *max_priority_waiter = list_entry(max_priority_elem, struct thread, elem);
     /* Save the priority of the max priority waiter we are unblocking */
     max_waiter_priority = max_priority_waiter->effective_priority;
+
+    max_waiter_mlfqs_priority = max_priority_waiter->mlfqs_priority;
     /* Unblock the max priority thread waiting on the semaphore */
     thread_unblock(max_priority_waiter);
 
@@ -144,7 +146,9 @@ sema_up (struct semaphore *sema)
   /* Yield to the CPU if the the priority of the max priority waiter is more than the
      priority of the thread that called sema_down(...).  I didn't think this was originally
      necessary, but after changing this we are passing priority-sema and priority-donate-sema */
-  if (max_waiter_priority > downer->effective_priority) {
+  if (!thread_mlfqs && max_waiter_priority > downer->effective_priority) {
+    thread_yield();
+  } else if (thread_mlfqs && !list_empty(&sema->waiters) && fix_compare(max_waiter_mlfqs_priority, downer->mlfqs_priority) == 1) {
     thread_yield();
   }
 }
