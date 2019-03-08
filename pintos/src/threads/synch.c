@@ -122,7 +122,6 @@ sema_up (struct semaphore *sema)
   struct thread *downer = thread_current();
 
   if (!list_empty(&sema->waiters)) {
-    //printf("%s%zd\n", "Num waiters: ", list_size(&sema->waiters));
     /* Get the max priority waiter on the semaphore */
     struct list_elem *max_priority_elem = list_max(&sema->waiters, priority_comparator, NULL);
     /* Remove the max priority waiter from the waiters list */
@@ -139,10 +138,6 @@ sema_up (struct semaphore *sema)
     
     /* Unblock the max priority thread waiting on the semaphore */
     thread_unblock(max_priority_waiter);
-
-    // OLD CODE
-    //thread_unblock (list_entry (list_pop_front (&sema->waiters), struct thread, elem));
-    //printf("%s%s%s%d\n", "Unblocking thread: ", max_priority_waiter->name, " with priority: ", max_priority_waiter->effective_priority);
   }
     
   sema->value++;
@@ -265,7 +260,6 @@ lock_acquire (struct lock *lock)
       }
 
     }
-    //printf("%s%s\n", requester->name, " is sleeping on the lock.");
     /* Sleep on the lock until it is available */
     sema_down(&lock->semaphore);
   }
@@ -275,23 +269,9 @@ lock_acquire (struct lock *lock)
   lock->holder = requester;
   /* Add this lock to the requester's locks_held */
   list_push_back(&requester->locks_held, &lock->held_elem);  
-  
-  /*struct sempahore *lock_semaphore = &(lock->semaphore);
-
-  if (!list_empty((lock_semaphore)->waiters)) {
-    // Get the highest priority waiter on the lock requester is now holding
-    struct list_elem *max_pri_elem = list_max(lock_semaphore->waiters, priority_comparator, NULL);
-    // Convert list_elem to thread
-    struct thread *max_waiter = list_entry(max_pri_elem, struct thread, elem);
-    // Set requester's effective priority to the priority of the max_waiter 
-    requester->effective_priority = max_waiter->effective_priority;
-  }*/
-  
+    
   /* Reset interrupt level */
   intr_set_level(curr_intr_level);
-
-  //sema_down (&lock->semaphore);
-  //lock->holder = thread_current ();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -354,19 +334,15 @@ lock_release (struct lock *lock)
       struct list_elem *curr_lock_elem = list_begin(&releaser->locks_held);
       /* Variable for max waiter priority */
       int max_waiter_priority = -1;
-      unsigned lock_hold_count = 0;
+
       /* Iterate through locks we are holding */
       while (curr_lock_elem != list_end(&releaser->locks_held)) {
-        lock_hold_count++;
         /* Get the current lock as a struct */ 
         struct lock *curr_lock = list_entry(curr_lock_elem, struct lock, held_elem);
 
         if (!list_empty(&curr_lock->semaphore.waiters)) {
           /* Get the max priority thread waiting on the lock */
           struct thread *max_waiter = list_entry(list_max(&curr_lock->semaphore.waiters, priority_comparator, NULL), struct thread, elem);
-
-          //printf("%s%s\n", "Max waiter: ", max_waiter->name);
-          //printf("%s%d\n", "Max waiter priority on iteration was: ", max_waiter->effective_priority);
           
           /* Update the max waiter priority if it is higher */
           if (max_waiter->effective_priority > max_waiter_priority) {
@@ -377,12 +353,9 @@ lock_release (struct lock *lock)
         /* Go to next element in locks_held list*/
         curr_lock_elem = list_next(curr_lock_elem);
       }
-      //printf("%s%s%s%d\n", "Thread: ", releaser->name, ", #Locks: ", lock_hold_count);
-      //printf("%s%d\n", "Final max waiter priority was: ", max_waiter_priority);
       /* Update our current effective priority */
       if (max_waiter_priority > releaser->base_priority) {
         releaser->effective_priority = max_waiter_priority;
-        //printf("%s%d\n", "Releasing and resetting priority to: ", max_waiter_priority);
       } else if (max_waiter_priority == -1) {
         releaser->effective_priority = releaser->base_priority;
       }
@@ -390,7 +363,6 @@ lock_release (struct lock *lock)
 
   }
 
-  //printf("%s\n", "Just finished a release.  Cool beans, man");
   /* Reset interrupt level to what it was */
   intr_set_level(curr_intr_level);
 
@@ -508,9 +480,6 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
     list_remove(max_waiter);
     /* Call sema_up on the max waiter (it will be unblocked) */
     sema_up (&list_entry (max_waiter, struct semaphore_elem, elem)->semaphore);
-
-    // OLD CODE:
-    //sema_up (&list_entry (list_pop_front (&cond->waiters), struct semaphore_elem, elem)->semaphore);
   }
     
 }

@@ -135,7 +135,7 @@ thread_tick (void)
 {
   struct thread *t = thread_current ();
 
-  /* TODO: Put MLFQS computation here:
+  /* MLFQS computation here:
      - Increment recent_cpu
      - Recalculate (and clamp) priorities of ALL threads on every fourth tick (timer_ticks() % 4 == 0)
      - Update load_avg then recent_cpu (for all threads) once a second (timer_ticks() % TIMER_FREQ == 0)
@@ -143,46 +143,65 @@ thread_tick (void)
 
   if (thread_mlfqs) {
     if (t != idle_thread){
+      /* Increment recent_cpu if running thread isn't idle thread */
       t->recent_cpu = fix_add(t->recent_cpu, fix_int(1));
     }
-
+    /* On every fourth timer tick... */
     if (timer_ticks() % 4 == 0) {
+      /* Thread element to iterate through all threads */
       struct list_elem *curr_thread_elem = list_begin(&all_list);
 
+      /* Iterate through all threads */
       while (curr_thread_elem != list_end(&all_list)) {
-
+        /* Get the thread struct from the thread element */
         struct thread *curr_thread = list_entry(curr_thread_elem, struct thread, allelem);
-        fixed_point_t curr_priority = fix_sub(fix_sub(fix_int(PRI_MAX), fix_div(curr_thread->recent_cpu, fix_int(4))), fix_mul(curr_thread->nice, fix_int(2)));
+        /* Calculate the priority according to the formula */
+        fixed_point_t curr_priority = fix_sub(
+                                        fix_sub(fix_int(PRI_MAX), fix_div(curr_thread->recent_cpu, fix_int(4))), 
+                                        fix_mul(curr_thread->nice, fix_int(2)));
+        /* Clamp priority between PRI_MIN and PRI_MAX */
         if (fix_compare(curr_priority, fix_int(PRI_MIN)) == -1) {
           curr_priority = fix_int(PRI_MIN);
         } else if (fix_compare(curr_priority, fix_int(PRI_MAX)) == 1) {
           curr_priority = fix_int(PRI_MAX);
         }
+        /* Update the thread's priority */
         curr_thread->mlfqs_priority = curr_priority;
+        /* Iterate thread element */
         curr_thread_elem = list_next(curr_thread_elem);
       }
     }
-
+    /* On every second... */
     if (timer_ticks() % TIMER_FREQ == 0) {
+      /* Get the number of ready threads (threads in ready list) */
       int ready_threads = list_size(&ready_list);
+      /* Add one to ready threads if running thread isn't idle thread */
       if (t != idle_thread) ready_threads++;
+      /* Update load average according to formula */
+      load_avg = fix_add(
+                  fix_mul(fix_div(fix_int(59),fix_int(60)), load_avg), 
+                  fix_mul(fix_div(fix_int(1), fix_int(60)),fix_int(ready_threads)));
 
-      load_avg = fix_add(fix_mul(fix_div(fix_int(59),fix_int(60)), load_avg), fix_mul(fix_div(fix_int(1), fix_int(60)),fix_int(ready_threads)));
-
+      /* Thread element to iterate through all threads */
       struct list_elem *curr_thread_elem = list_begin(&all_list);
-
+      /* Iterate through all threads */
       while (curr_thread_elem != list_end(&all_list)) {
-
+        /* Get the thread struct from the thread element */
         struct thread *curr_thread= list_entry(curr_thread_elem, struct thread, allelem);
-        
+        /* Update the thread's recent_cpu if it isn' the idle thread */
         if (curr_thread != idle_thread) {
-          curr_thread->recent_cpu = fix_add(fix_mul(fix_div(fix_mul(fix_int(2), load_avg), fix_add(fix_mul(fix_int(2), load_avg), fix_int(1))), curr_thread->recent_cpu), curr_thread->nice);
+          curr_thread->recent_cpu = fix_add(
+                                      fix_mul(
+                                        fix_div(
+                                          fix_mul(fix_int(2), load_avg), 
+                                          fix_add(fix_mul(fix_int(2), load_avg), fix_int(1))), 
+                                        curr_thread->recent_cpu), 
+                                      curr_thread->nice);
         }
-
+        /* Iterate thread element */
         curr_thread_elem = list_next(curr_thread_elem);
       }
     }
-
   }
 
   /* Update statistics. */
@@ -419,7 +438,7 @@ thread_set_priority (int new_priority)
   }
   /* Reset interrupt level to what it was */
   intr_set_level(curr_intr_level);
-
+  /* Yield after setting priority so scheduler is preemptive */
   thread_yield();
 }
 
@@ -427,6 +446,7 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
+  /* Return MLFQS priority if running MLFQS, just int otherwise */
   if (thread_mlfqs) {
     return fix_trunc(thread_current() -> mlfqs_priority);
   }
@@ -458,7 +478,7 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void)
 {
-  return fix_trunc(fix_mul(thread_current() -> recent_cpu, fix_int(100)));
+  return fix_trunc(fix_mul(thread_current()->recent_cpu, fix_int(100)));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -589,7 +609,7 @@ bool priority_comparator (const struct list_elem *a, const struct list_elem *b, 
   struct thread *thread_a = list_entry(a, struct thread, elem);
   /* Get thread b from list elem */
   struct thread *thread_b = list_entry(b, struct thread, elem);
-
+  /* Compare MLFQS priorities if in MLFQS mode, or just the ints otherwise */
   if (thread_mlfqs) {
     return fix_compare(thread_a->mlfqs_priority, thread_b->mlfqs_priority) == -1;
   } else {
@@ -608,9 +628,6 @@ next_thread_to_run (void)
   if (list_empty(&ready_list)) {
     return idle_thread;
   } else {
-    // OLD CODE
-    //return list_entry (list_pop_front (&ready_list), struct thread, elem);
-
     /* Get the max priority element */
     struct list_elem *thread_to_run = list_max(&ready_list, priority_comparator, NULL);
     /* Remove the max priority thread from the list */
@@ -688,8 +705,6 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
-
-  //printf("%s%s%s%d\n", "Choosing thread: ", next->name, " with priority: ", next->effective_priority);
 }
 
 /* Returns a tid to use for a new thread. */
