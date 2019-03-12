@@ -26,3 +26,24 @@ In terms of the distribution of work for the design document, every member in ou
 Once we began actually coding for the project, Arjun took the most initiative and finished parts 1 and 2 relatively early on without the help of the other members. Part 3 was mostly a collaborative process in which the members met up and completed the majority of the task, while Arjun tied up the loose ends and helped us identify a bug that we were stuck on for the MLFQS blocking. 
 
 Our group can improve on creating a timeline for tasks and distributing the tasks more evenly. Because we are all busy people with varying schedules, it was hard to allocate significant amounts of time where each member was all available to work on the project, and due to the lack of initiative in organizing when to meet, we each ended up focusing on different parts of the project instead of working collaboratively on every single part of the project. Next time, we hope to allocate tasks and have a more comprehensive view/management of each team member's schedules so we can plan the workload more accordingly and avoid one of the team members doing the majority of the work. 
+
+
+## Code Quality
+
+* Our code **doesn't** exhibit any major memory safety problems.  It doesn't use any C strings so there is no problem there, it doesn't have any memory leaks since we never directly do any memory allocation (it is just done in `list_init()` and `thread_init()`, which properly deallocate when the program finishes execution or when a thread is destroyed.)  Also, there are no race conditions since we disable interrupts whenever accessing a concurrency-dependent data structure.
+
+* We mimic the code style that Pintos uses, including snake case for variables and functions and 2 spaces for indentation.  The only deviation from Pintos's style is not putting curly braces on the next line and not putting spaces between the function name and parentheses, which looked somewhat strange.
+
+* Our code is fairly simple and easy to understand.  It follows a similar pattern when doing tasks that are similar (such as finding the max of a list, etc.)  It implements the algorithms we set out to use in a clean and straightforward manner.
+
+* Our entire code that we added is littered with comments (almost on every other line in some functions) and we leave out comments only in self-explanatory functions/lines.
+
+* We did not leave commented-out code in our final submission.
+
+* We tended to create reusable functions **when applicable**, which was typically only for comparator functions for finding the max of a list, and rarely, if ever, copied exact code from one function to another.
+
+* We found it easier to implement iterating through linked lists ourselves in some situations since it would often be messier to try to use some of the methods given in `list.c`, however we did use `list_max` with a comparator for many functions.
+
+* Very rarely do we have lines that span more than 100 characters.  In lines with many function calls (like for long `fixed_point` arithmetic) we use the appropriate indentation and new lines to prevent the line from being too long and to improve readability.
+
+* We never commited binary files when making commits, those were either ignored by the `.gitignore` or not explicitly added with `git add`.
