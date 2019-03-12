@@ -8,7 +8,9 @@ At first, we planned on pushing threads to the back of our sleeping thread list 
 We also initially planned to use locks within ```timer_sleep```. This had issues since it may cause the thread that handles ```timer_interrupts``` to be blocked, our final implementation disables interrupts instead of using locks to maintain synchronization.
 
 ### Part 2:
+Our original expectation for lock_release was that only the single highest priority donation was relevant, such that any thread that releases a lock would have its effective_priority reset to its base_priority. However, this failed to consider cases where there could be multiple locks waiting  for each other. Our final implementation includes recursive priority donations whereby a thread (X) that is releasing a lock (L_i) will iterate through the list of all of its other held locks (L_n) and set its effective_priority to that of the highest thread (x_i) waiting on thread X.
 
+We also initially planned to use locks throughout phase 2 but instead chose to disable interrupts in order to maintain synchronization.
 ### Part 3:
 Initially, our plan was to remove all of the threads that match the maximum priority in our waiting list. However, this led to unforseen stalling. Our final implementation utilizes round robin to break ties in order to solve this problem, and only removes the first item of our queue and adds it back to the other end of our queue. 
 
