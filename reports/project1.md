@@ -15,6 +15,8 @@ We also initially planned to use locks throughout part 2 but instead chose to si
 ### Part 3:
 Initially, our plan was to move all of the threads that match the maximum priority in the ready list to another list, `max_priority_threads`, and keep and index to iterate through `max_priority_threads`. However, this is a complex (and somewhat inefficient) solution for a simple task. Our final implementation inherently executes round robin by only removing the first maximum priority thread from the `ready_list` and pushing it back to the end once it yields or there is an interrupt.
 
+Also, we decided to add additional variables ```thread_mlfqs``` and ```mlfqs_priority``` to distinguish mlfqs threads from non-mlfqs threads and to keep track of ```mlfqs_priority``` in decreasing order in the list. If a thread is mlfqs, ```priority_comparator``` uses ```mlfqs_priority``` to order the priority in decreasing order, maintaining the linear time access like the non-mlfqs thread. 
+
 Again, we disabled interrupts to enforce synchronization instead of using a lock for similar reasons as in part 2.
 
 ## Reflection
