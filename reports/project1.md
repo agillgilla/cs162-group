@@ -3,16 +3,19 @@ Final Report for Project 1: Threads
 ## Changes
 
 ### Part 1:
-At first, we planned on pushing threads to the back of our sleeping thread list within the ```timer_sleep``` function and then iterate through the sleeping thread list within the ```timer_interrupt``` function. We realized that since ```timer_interrupt``` runs more frequently than ```timer_sleep```, we instead opted to inserting the threads into the list in sorted order. While both searching for the thread and inserting in the thread in the right order were linear time complexity, the first was linear time upon insertion while the latter was linear time upon accesses. Because accesses happen much more often, reducing accesses to constant time greatly improved our performance. 
+At first, we planned on pushing threads to the back of our sleeping thread list within the `timer_sleep()` function and then iterate through the sleeping thread list within the `timer_interrupt()` function. We realized that since `timer_interrupt()` runs more frequently than `timer_sleep()`, we instead opted to inserting the threads into the list in sorted order. While both searching for the thread and inserting in the thread in the right order were linear time complexity, the first was linear time upon insertion while the latter was linear time upon accesses. Because accesses happen much more often, reducing accesses to constant time greatly improved our performance. 
 
-We also initially planned to use locks within ```timer_sleep```. This had issues since it may cause the thread that handles ```timer_interrupts``` to be blocked, our final implementation disables interrupts instead of using locks to maintain synchronization.
+We also initially planned to use locks within `timer_sleep()`. This had issues since it may cause the thread that handles `timer_interrupt`s to be blocked, our final implementation disables interrupts instead of using locks to maintain synchronization.
 
 ### Part 2:
-Our original expectation for lock_release was that only the single highest priority donation was relevant, such that any thread that releases a lock would have its effective_priority reset to its base_priority. However, this failed to consider cases where there could be multiple locks waiting  for each other. Our final implementation includes recursive priority donations whereby a thread (X) that is releasing a lock (L_i) will iterate through the list of all of its other held locks (L_n) and set its effective_priority to that of the highest thread (x_i) waiting on thread X.
+Our original expectation for `lock_release()` was that only the single highest priority donation was relevant, such that any thread that releases a lock would have its `effective_priority` reset to its `base_priority`. However, this failed to consider cases where there could be multiple locks waiting  for each other. Our final implementation includes recursive priority donations, so a donating thread `A` that is donating to a thread `B` will recurse and donate to a thread `C` that `B` is waiting for, and continues down the chain.  We also have a different method for "de-donating" when releasing locks whereby a thread `X` that is releasing a lock `L_i` will iterate through the list of all of the locks it is holding, `locks_held`, and set its `effective_priority` to that of the highest priority thread `max_priority_thread` waiting on any given lock held by `X`.
 
-We also initially planned to use locks throughout phase 2 but instead chose to disable interrupts in order to maintain synchronization.
+We also initially planned to use locks throughout part 2 but instead chose to simply disable interrupts in order to maintain synchronization.  This is because for one thing, disabling interrupts is easier than using locks, and also because all of the functions called for scheduling need to happen quickly and not fall asleep.
+
 ### Part 3:
-Initially, our plan was to remove all of the threads that match the maximum priority in our waiting list. However, this led to unforseen stalling. Our final implementation utilizes round robin to break ties in order to solve this problem, and only removes the first item of our queue and adds it back to the other end of our queue. 
+Initially, our plan was to move all of the threads that match the maximum priority in the ready list to another list, `max_priority_threads`, and keep and index to iterate through `max_priority_threads`. However, this is a complex (and somewhat inefficient) solution for a simple task. Our final implementation inherently executes round robin by only removing the first maximum priority thread from the `ready_list` and pushing it back to the end once it yields or there is an interrupt.
+
+Again, we disabled interrupts to enforce synchronization instead of using a lock for similar reasons as in part 2.
 
 ## Reflection
 
