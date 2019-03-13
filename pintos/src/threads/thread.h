@@ -89,27 +89,11 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int effective_priority;             /* Effective priority. */
-    int base_priority;                  /* Base priority. */
+    int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-
-    /* Wakeup time (for sleeping threads) */
-    int64_t wakeup_time;
-
-    /* List of locks that the thread is holding */
-    struct list locks_held;
-
-    /* Lock object that thread is currently waiting to acquire */
-    struct lock *waiting_for;
-
-    /* Members for MLFQS */
-    fixed_point_t mlfqs_priority;
-    fixed_point_t nice;
-    fixed_point_t recent_cpu;
-
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -155,8 +139,5 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-
-/* Decorator for thread pirority comparator for list sorting */
-bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */
