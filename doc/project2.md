@@ -37,12 +37,51 @@ Our implementation of argument passing will be fairly simple (if we follow the a
 ## Task 2: Process Control Syscalls
 
 ### Data structures and functions
+In process.h
+```C
+struct wait_status {
+	int ref_count;
+	tid_t child_tid;
+pid_t pid; 
+	int exit_code;
+	struct semaphore sema;
+	struct lock lock;
+	struct list_elem elem;
+	}
+```
+In thread.h
+```C
+	struct thread {
+	...
+	struct list children;
+	struct wait_status *wait_st;
+	}
 
+```
 ### Algorithms
+First we want to verify the virtual memory pointer that is being accessed. This must be done before the system call number is accessed. 
 
+Then, every argument being used for the syscall must be verified as well before we dereference anything.
+
+For verification, we first ensure that none of the pointers are NULL pointers. Then, we use the function ```is_user_addr()``` in threads/vaddr.h in order to verify that the pointer points to a valid place in the user virtual memory. Lastly, we verify if the mapping exists by calling ```lookup_page()``` in pagedir.c with the CREATE flag set to false, in order to make sure that the pointer passed in is properly mapped from virtual to physical memory.
+
+If there are any invalid pointers, we must handle and free all the resources that the current process is using. To do this, we iterate through the locks and free all that are held by the process, as well as free all the pages allocated to that process.
+
+Following are the algorithms we will use for __halt__, __exit__, __exec__, __wait__, and __practice__.
+
+__halt:__ we simply call shutdown_power_off() in devices/shutdown.c
+__exit:__ most of the implementation has been provided, but we want to set ```exit_code``` in the ```wait_st``` member, and then up sema for ```wait_st```. Then, we terminate the thread. ```ref_count``` is then decremented, and if it equals 0, we deallocate ```wait_status```.
+__wait:__ If a child ```wait_status->pid``` matches the returned ```tid```, we down sema for the child ```wait_st```. We return ```exit_code``` in ```wait_st``` for the child that is being waited on, and increment ```ref_count``` by 1. 
+__practice:__ Increment ```args[1]``` and store it in the ```f->eax``` register, where f is the argument to ```syscall_handler()```.
 ### Synchronization
-
+We will use the ```lock``` struct inside of ```wait_status``` whenever doing operations on the ```ref_count``` to make sure there are no race conditions.  We don’t have to to lock any other members of ```wait_status``` since they either won’t be modified or they will only be modified by one thread (themself, like ```exit_code```.)
 ### Rationale
+
+Our implementation is relatively straightforward in that it simply handles multiple cases in the syscal handler after handling the cases in which a syscall cannot be completed due to invalid memory access. 
+
+We used the first verification method outlined in the spec (slower, but simpler to understand) but may switch the the second later on in the project if we have time or want to improve the performance and can do so in a timely manner without bugs.
+
+In terms of the specific syscalls, halt and practice are extremely straightforward. The most important part was making sure that there exists no race conditions in the other syscalls, which we handle adequately using a lock in ```wait_st```.
 
 ---
 
