@@ -137,7 +137,7 @@ The main worry for synchronization in this task is concurrency of file I/O.  Thi
 
 The implementation outlined above is the most efficient and straightforward way of approaching the design problem that we have come up with.  There will have to be some sort of list for the file table and keeping track of file descriptors, so we created the global `file_table` list in thread.c composed of `file_entry`’s that associate file descriptors to files.  There will also be a simple implementation of system file I/O calls by just calling the black box functions provided to us in `filesys.c` and `file.c`.  Lastly, we solve concurrency with a global lock on the file table, which was suggested in the project spec.
 
---
+---
 
 ## Additional Questions
 
