@@ -136,3 +136,13 @@ The main worry for synchronization in this task is concurrency of file I/O.  Thi
 ### Rationale
 
 The implementation outlined above is the most efficient and straightforward way of approaching the design problem that we have come up with.  There will have to be some sort of list for the file table and keeping track of file descriptors, so we created the global `file_table` list in thread.c composed of `file_entry`’s that associate file descriptors to files.  There will also be a simple implementation of system file I/O calls by just calling the black box functions provided to us in `filesys.c` and `file.c`.  Lastly, we solve concurrency with a global lock on the file table, which was suggested in the project spec.
+
+--
+
+## Additional Questions
+
+1. `sc-bad-sp` uses an invalid stack pointer on line 18 when making a syscall.  The test case uses movl to set the stack pointer to **64 MB** below the code segment, which is definitely not a valid stack pointer.
+
+2. `sc-bad-arg` passes a valid stack pointer to the system call, but the stack pointer is too close to the top page of user memory, so the stack pointer overflows into the kernel memory.
+
+3. None of the tests test `filesize(...)`, `seek(...)`, or `tell(...)` (the file I/O syscalls to be implemented in task 3.)  Tests need to be added to make sure that `filesize(...)` returns the proper size of a file and it handles edge cases properly, and that `seek(...)` and `tell(...)` both work as outlined in the spec.
