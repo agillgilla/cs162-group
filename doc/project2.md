@@ -42,7 +42,7 @@ In process.h
 struct wait_status {
 	int ref_count;
 	tid_t child_tid;
-pid_t pid; 
+	pid_t pid; 
 	int exit_code;
 	struct semaphore sema;
 	struct lock lock;
@@ -69,9 +69,14 @@ If there are any invalid pointers, we must handle and free all the resources tha
 
 Following are the algorithms we will use for __halt__, __exit__, __exec__, __wait__, and __practice__.
 
-__halt:__ we simply call shutdown_power_off() in devices/shutdown.c
-__exit:__ most of the implementation has been provided, but we want to set ```exit_code``` in the ```wait_st``` member, and then up sema for ```wait_st```. Then, we terminate the thread. ```ref_count``` is then decremented, and if it equals 0, we deallocate ```wait_status```.
+__halt:__ We simply call shutdown_power_off() in devices/shutdown.c
+
+__exit:__ Most of the implementation has been provided, but we want to set ```exit_code``` in the ```wait_st``` member, and then up sema for ```wait_st```. Then, we terminate the thread. ```ref_count``` is then decremented, and if it equals 0, we deallocate ```wait_status```.
+
+__exec:__ In init_thread(), add wait_status struct and list of children, where wait_status->sema value starts at 0. In exec syscall, call process_execute(file) and save the tid_t return value.
+
 __wait:__ If a child ```wait_status->pid``` matches the returned ```tid```, we down sema for the child ```wait_st```. We return ```exit_code``` in ```wait_st``` for the child that is being waited on, and increment ```ref_count``` by 1. 
+
 __practice:__ Increment ```args[1]``` and store it in the ```f->eax``` register, where f is the argument to ```syscall_handler()```.
 ### Synchronization
 We will use the ```lock``` struct inside of ```wait_status``` whenever doing operations on the ```ref_count``` to make sure there are no race conditions.  We don’t have to to lock any other members of ```wait_status``` since they either won’t be modified or they will only be modified by one thread (themself, like ```exit_code```.)
