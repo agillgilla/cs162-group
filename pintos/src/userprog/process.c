@@ -23,7 +23,7 @@
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-static void fill_stack(char *argv, size_t argc, void **esp);
+static void fill_stack(char *argv[], size_t argc, struct intr_frame *esp);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -88,7 +88,7 @@ start_process (void *file_name_)
     thread_exit ();
   else {
 	  //push arguments to stack
-	  fill_stack(*argv, argc, &if_.esp);
+	  fill_stack(argv, argc, &if_);
   }
   
   /* Start the user process by simulating a return from an
@@ -102,29 +102,31 @@ start_process (void *file_name_)
 }
 
 void
-fill_stack(char *argv, size_t argc, void **esp) {
+fill_stack(char *argv[], size_t argc, struct intr_frame *if_) {
 	size_t index;
 	size_t arg_size;
+	size_t fake_ra = 0;
 
 	for (index = 0; index < argc; index++) {
-		arg_size = strlen(argv[index]) + 1;
-		*esp -= arg_size;
-		memcpy(*esp, argv[index], arg_size);
+		arg_size = strlen((char*)argv[index]) + 1;
+		if_->esp -= arg_size;
+		memcpy(&if_->esp, argv[index], arg_size);
 	}
 
 	arg_size = (argc + 1) * sizeof(char*);
-	*esp -= (int)(*esp) % 4 + arg_size;
-	memcpy(*esp, argv, arg_size);
+	if_->esp -= (int)(&if_->esp) % 4 + arg_size;
+	memcpy(&if_->esp, argv, arg_size);
 
 	//push argv, argc, ra
-	*esp -= 4;
-	*((char*)*esp) = *esp + 4;
-
-	*esp -= 4;
-	*((int*)*esp) = argc;
+	if_->esp -= 4;
+	memcpy(&if_->esp, &if_->esp + 4, sizeof(char*));
 	
-	*esp -= 4;
-	*((void*)*esp) = 0;
+
+	if_->esp -= 4;
+	memcpy(&if_->esp, &argc, sizeof(int*));
+	
+	if_->esp -= 4;
+	memcpy(&if_->esp, &fake_ra, sizeof(void*));
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
