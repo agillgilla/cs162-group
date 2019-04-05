@@ -15,6 +15,7 @@
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -22,6 +23,7 @@
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void fill_stack(char *argv, size_t argc, void **esp);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -56,6 +58,22 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  
+  size_t argc = 0;
+  char **argv;
+  char *token;
+  char *strtok_ptr;
+
+  token = strtok_r(file_name, " ", &strtok_ptr);
+  argv = (char **) malloc((strlen(file_name) + 1) * sizeof(char));
+  if (argv == NULL)
+	  PANIC("Not enough memory.");
+  while (token != NULL) 
+  {
+	  argv[argc] = token;
+	  token = strtok_r(NULL, " ", &strtok_ptr);
+	  argc++;
+  }
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -65,10 +83,14 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page(file_name);
   if (!success)
     thread_exit ();
-
+  else {
+	  //push arguments to stack
+	  fill_stack(*argv, argc, &if_.esp);
+  }
+  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -77,6 +99,32 @@ start_process (void *file_name_)
      and jump to it. */
   asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
   NOT_REACHED ();
+}
+
+void
+fill_stack(char *argv, size_t argc, void **esp) {
+	size_t index;
+	size_t arg_size;
+
+	for (index = 0; index < argc; index++) {
+		arg_size = strlen(argv[index]) + 1;
+		*esp -= arg_size;
+		memcpy(*esp, argv[index], arg_size);
+	}
+
+	arg_size = (argc + 1) * sizeof(char*);
+	*esp -= (int)(*esp) % 4 + arg_size;
+	memcpy(*esp, argv, arg_size);
+
+	//push argv, argc, ra
+	*esp -= 4;
+	*((char*)*esp) = *esp + 4;
+
+	*esp -= 4;
+	*((int*)*esp) = argc;
+	
+	*esp -= 4;
+	*((void*)*esp) = 0;
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
