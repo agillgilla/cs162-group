@@ -58,21 +58,39 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-  
-  size_t argc = 0;
-  char **argv;
-  char *token;
-  char *strtok_ptr;
 
-  token = strtok_r(file_name, " ", &strtok_ptr);
-  argv = (char **) malloc((strlen(file_name) + 1) * sizeof(char));
-  if (argv == NULL)
-	  PANIC("Not enough memory.");
+  /* Make a duplicate of filename for argc counting */
+  char file_name_dup[strlen(file_name) + 1];
+  strlcpy(file_name_dup, file_name, strlen(file_name) + 1);
+  /* Make strtok pointer for argc counting */
+  char *strtok_ptr_count;
+  char *token_count = strtok_r(file_name_dup, " ", &strtok_ptr_count);
+  /* Init argc to 0 */
+  size_t argc = 0;
+  /* Iterate through copy of input string to count argc */
+  while (token_count != NULL) 
+  {
+    token_count = strtok_r(NULL, " ", &strtok_ptr_count);
+    /* New word, increment argc */
+    argc++;
+  }
+  /* Init argv array of char pointers */
+  char *argv[argc + 1];
+  /* Make strtok pointer for filling argv */
+  char *strtok_ptr;
+  /* Start tokenizing file name */
+  char *token = strtok_r(file_name, " ", &strtok_ptr);
+  
+  /* Fill argv with split words */
+  int i = 0;
   while (token != NULL) 
   {
-	  argv[argc] = token;
-	  token = strtok_r(NULL, " ", &strtok_ptr);
-	  argc++;
+    /* Copy token address to appropriate argv index */
+    argv[i] = token;
+    /* Move to next token */
+    token = strtok_r(NULL, " ", &strtok_ptr);
+    /* Increment index */
+    i++;
   }
 
   /* Initialize interrupt frame and load executable. */
@@ -83,14 +101,16 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page(file_name);
-  if (!success)
+  if (!success) {
+    palloc_free_page(file_name);
     thread_exit ();
-  else {
-	  //push arguments to stack
-	  fill_stack(argv, argc, &if_);
+  } else {
+    /* Push arguments to stack */
+    fill_stack(argv, argc, &if_);
+    
+    palloc_free_page(file_name);
   }
-  
+
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -103,30 +123,46 @@ start_process (void *file_name_)
 
 void
 fill_stack(char *argv[], size_t argc, struct intr_frame *if_) {
-	size_t index;
-	size_t arg_size;
-	size_t fake_ra = 0;
+  /* Fake return address is 0 */
+  size_t fake_ra = 0;
+  /* Initialize char array of argument addresses 
+     (addresses in char array exist on user stack) */
+  char *arg_addrs[argc + 1];
 
-	for (index = 0; index < argc; index++) {
-		arg_size = strlen((char*)argv[index]) + 1;
-		if_->esp -= arg_size;
-		memcpy(&if_->esp, argv[index], arg_size);
-	}
+  /* Init index and arg_size vars for pushing to user stack */
+  int index;
+  size_t arg_size;
+  /* Push words to top of stack frame */
+  for (index = 0; index < argc; index++) {
+    /* Get the length of current word */
+    arg_size = strlen((char*)argv[index]) + 1;
+    /* Decrement user stack pointer accordingly */
+    if_->esp -= arg_size;
+    /* Add the current stack pointer (address of current word) to argument adresses */
+    arg_addrs[index] = (char *) if_->esp;
+    /* Copy word to user stack from argv */
+    memcpy(if_->esp, argv[index], arg_size);
+  }
 
-	arg_size = (argc + 1) * sizeof(char*);
-	if_->esp -= (int)(&if_->esp) % 4 + arg_size;
-	memcpy(&if_->esp, argv, arg_size);
+  /* Push NULL pointer sentinel (according to 3.1.9 in spec) */
+  arg_addrs[argc] = NULL;
 
-	//push argv, argc, ra
-	if_->esp -= 4;
-	memcpy(&if_->esp, &if_->esp + 4, sizeof(char*));
-	
+  /* Push argv char pointers (right to left order) */
+  size_t arg_addrs_size = (argc + 1) * sizeof(char *);
+  if_->esp -= (size_t) (if_->esp) % 4 + arg_addrs_size;
+  memcpy (if_->esp, arg_addrs, arg_addrs_size);
 
-	if_->esp -= 4;
-	memcpy(&if_->esp, &argc, sizeof(int*));
-	
-	if_->esp -= 4;
-	memcpy(&if_->esp, &fake_ra, sizeof(void*));
+  /* Push argv */
+  if_->esp -= 4;
+  *((char ***) (if_->esp)) = if_->esp + 4;
+
+  /* Push argc */
+  if_->esp -= 4;
+  *((int *) (if_->esp)) = argc;  
+
+  /* Push fake return address */
+  if_->esp -= 4;
+  memcpy(if_->esp, &fake_ra, 4);
 }
 
 /* Waits for thread TID to die and returns its exit status.  If

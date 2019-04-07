@@ -16,10 +16,14 @@ static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
   uint32_t* args = ((uint32_t*) f->esp);
-  printf("System call number: %d\n", args[0]);
+  //printf("System call number: %d\n", args[0]);
   if (args[0] == SYS_EXIT) {
     f->eax = args[1];
     printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
     thread_exit();
+  } else if (args[0] == SYS_WRITE && args[1] == 1) {
+    /* Write syscall with fd set to 1, so write to stdout */
+    putbuf((void *) args[2], args[3]);
+    f->eax = args[3];
   }
 }
