@@ -3,6 +3,9 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "userprog/pagedir.h"
+
 
 static void syscall_handler (struct intr_frame *);
 
@@ -26,4 +29,36 @@ syscall_handler (struct intr_frame *f UNUSED)
     putbuf((void *) args[2], args[3]);
     f->eax = args[3];
   }
+}
+
+bool valid_pointer(void *pointer, size_t len) {
+	/* Make sure that the pointer doesn't leak into kernel memory */
+  return is_user_vaddr(pointer + len) && pagedir_get_page(thread_current()->pagedir, pointer + len) != NULL;
+}
+
+bool valid_string(char *str) {
+	/* Check that string is in user virtual address space */
+	if (!is_user_vaddr(str)) {
+		return false;
+	}
+	/* Check if the string is actually mapped in page memory */
+  char *kernel_page_str = pagedir_get_page(thread_current()->pagedir, str);
+  char *end_str = str + strlen(kernel_page_str) + 1;
+  if (kernel_page_str == NULL || 
+  	!(is_user_vaddr(end_str) && pagedir_get_page(thread_current()->pagedir, end_str) != NULL)) {
+    return false;
+  }
+	return true;
+}
+
+void validate_pointer(void *pointer, size_t len) {
+	if (!valid_pointer(pointer, len)) {
+		thread_exit();
+	}
+}
+
+void validate_string(char *str) {
+	if (!valid_string(str)) {
+		thread_exit();
+	}
 }
