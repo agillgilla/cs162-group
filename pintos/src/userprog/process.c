@@ -43,8 +43,15 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* Make space for storing file_name that will be used to
+     name the thread. */
+  size_t len = (strcspn(file_name, " ") + 1) * sizeof(char);
+  char *thread_name = malloc(len);
+  /* Make a copy of the file_name only. */
+  strlcpy(thread_name, file_name, len);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (thread_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
