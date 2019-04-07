@@ -25,6 +25,16 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void fill_stack(char *argv[], size_t argc, struct intr_frame *esp);
 
+/* exec_info is data structure to be created in process_execute(...)
+   and passed to start_process to track loading of new process.
+*/
+struct exec_info {
+  char *file_name;                 /* Filename of program that will be loaded */
+  struct semaphore load_sema;      /* Init to 0, down in parent calling exec, up in child after load */
+  struct wait_status *wait_status; /* Wait status for child */
+  bool success;                    /* Whether or not load was successful */
+};
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -34,6 +44,8 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
+
+  struct exec_info exec_inf;
 
   sema_init (&temporary, 0);
   /* Make a copy of FILE_NAME.
@@ -50,19 +62,41 @@ process_execute (const char *file_name)
   /* Make a copy of the file_name only. */
   strlcpy(thread_name, file_name, len);
 
+  /* Init members of exec_info */
+  exec_inf.file_name = fn_copy;
+  sema_init (&exec_inf.load_sema, 0);
+  
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (thread_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  tid = thread_create (thread_name, PRI_DEFAULT, start_process, &exec_inf);
+
+  if (tid == TID_ERROR) {
     palloc_free_page (fn_copy);
+  } else {
+    /* Wait for child to finish loading */
+    sema_down(&(exec_inf.load_sema));
+    
+    /* Child is finished loading */
+    if (!exec_inf.success) {
+      /* Error on load */
+      tid = TID_ERROR;
+      palloc_free_page (fn_copy);
+    } else {
+      /* Successful load, add thread to children list */
+      list_push_back(&thread_current()->children, &exec_inf.wait_status->elem);
+    }
+  }
+
   return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *exec_inf_)
 {
-  char *file_name = file_name_;
+  struct exec_info *exec_inf = exec_inf_;
+
+  char *file_name = exec_inf->file_name;
   struct intr_frame if_;
   bool success;
 
@@ -114,8 +148,31 @@ start_process (void *file_name_)
   } else {
     /* Push arguments to stack */
     fill_stack(argv, argc, &if_);
+
+    /* Set wait_status of exec_info */
+    thread_current()->wait_st = malloc(sizeof(*exec_inf->wait_status));
+    exec_inf->wait_status = thread_current()->wait_st;  
     
+    bool malloc_success = exec_inf->wait_status != NULL;
+    /* Check if malloc was successful */
+    if (malloc_success) {
+      /* Set the members of wait_status we created */
+      exec_inf->wait_status->ref_count = 2;
+      exec_inf->wait_status->child_tid = thread_current()->tid;
+      sema_init (&(exec_inf->wait_status->sema), 0);
+      lock_init (&(exec_inf->wait_status->lock));
+    }
+
     palloc_free_page(file_name);
+  
+    /* Done loading, wake up parent and set success flag */
+    exec_inf->success = success && malloc_success;
+    sema_up (&exec_inf->load_sema);
+
+    /* Exit thread if we didn't load successfully */
+    if (!(success && malloc_success)) {
+      thread_exit ();
+    }
   }
 
   /* Start the user process by simulating a return from an

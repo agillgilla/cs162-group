@@ -98,11 +98,28 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
+    int exit_code;                      /* The exit code set when the thread completes */
+    struct wait_status *wait_st;        /* The wait status of the thread */
+    struct list children;               /* List of wait_status's of children */
 #endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+/* Data structure used to communicate between parent and exec'd child.
+   Parent has has access in list of children.
+   Child has access by direct member pointer. */
+struct wait_status
+{
+  int ref_count;              /* Used to track state of references between parent and child */
+  tid_t child_tid;            /* The thread ID of the child */
+  int exit_code;              /* The exit code set by child after finished */
+  struct semaphore sema;      /* Semaphore to track waiting on a process until it completes */
+  struct lock lock;           /* Lock for synchronization (especially on ref_count) */
+  struct list_elem elem;      /* List element for parent's list of children */
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
