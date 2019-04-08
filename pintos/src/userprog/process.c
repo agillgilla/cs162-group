@@ -244,14 +244,17 @@ fill_stack(char *argv[], size_t argc, struct intr_frame *if_) {
 int
 process_wait (tid_t child_tid)
 {
-	sema_down(&temporary);
-	return 0;
+	//sema_down(&temporary);
+	//return 0;
 
+  
 	int exit_code = -1;
 	struct wait_status *child_wait_st = try_get_wait_st(child_tid);
+
 	if (child_wait_st == NULL) {
 		return exit_code;
 	}
+
 	sema_down(&child_wait_st->sema);
 	list_remove(&child_wait_st->elem);
 	exit_code = child_wait_st->exit_code;
@@ -298,6 +301,7 @@ process_exit (void)
       pagedir_destroy (pd);
     }
   sema_up (&temporary);
+  sema_up (&cur->wait_st->sema);
 }
 
 /* Sets up the CPU for running user code in the current
