@@ -5,9 +5,16 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
+#include "userprog/process.h"
+#include "devices/shutdown.h"
 
 
 static void syscall_handler (struct intr_frame *);
+bool valid_string(char *str);
+bool valid_pointer(void *pointer, size_t len);
+void validate_pointer(void *pointer, size_t len);
+void validate_string(char *str);
+
 
 void
 syscall_init (void)
@@ -28,6 +35,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Write syscall with fd set to 1, so write to stdout */
     putbuf((void *) args[2], args[3]);
     f->eax = args[3];
+  } else if (args[0] == SYS_PRACTICE) {
+    f->eax = args[1] + 1;
+  } else if (args[0] == SYS_HALT) {
+    shutdown_power_off();
+  } else if (args[0] == SYS_EXEC) {
+    f->eax = process_execute((char *)args[1]);
   }
 }
 
@@ -44,7 +57,7 @@ bool valid_string(char *str) {
 	/* Check if the string is actually mapped in page memory */
   char *kernel_page_str = pagedir_get_page(thread_current()->pagedir, str);
   char *end_str = str + strlen(kernel_page_str) + 1;
-  if (kernel_page_str == NULL || 
+  if (kernel_page_str == NULL ||
   	!(is_user_vaddr(end_str) && pagedir_get_page(thread_current()->pagedir, end_str) != NULL)) {
     return false;
   }
