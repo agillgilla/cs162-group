@@ -102,6 +102,9 @@ struct thread
     int exit_code;                      /* The exit code set when the thread completes */
     struct wait_status *wait_st;        /* The wait status of the thread */
     struct list children;               /* List of wait_status's of children */
+
+    struct list file_table;             /* List of file_entry's for thread */
+    int fd_count;                       /* Current file descriptor number for file_table */
 #endif
 
     /* Owned by thread.c. */

@@ -43,11 +43,16 @@ syscall_handler (struct intr_frame *f UNUSED)
   } else if (args[0] == SYS_WAIT) {
   	f->eax = process_wait(args[1]);
 	} else if (args[0] == SYS_CREATE) {
-
+		f->eax = filesys_create((char *) args[1], args[2], false);
 	} else if (args[0] == SYS_REMOVE) {
 
 	} else if (args[0] == SYS_OPEN) {
-		
+		struct file *file = filesys_open((char *) args[1]);
+		if (file == NULL) {
+			f->eax = -1;
+		} else {
+			f->eax = open_fd(file);
+		}
 	} else if (args[0] == SYS_FILESIZE) {
 		
 	} else if (args[0] == SYS_READ) {
@@ -65,6 +70,25 @@ syscall_handler (struct intr_frame *f UNUSED)
 	} else if (args[0] == SYS_CLOSE) {
 		
 	}
+}
+
+int open_fd(struct file *file) {
+	/* Get the current running thread */
+  struct thread *cur = thread_current ();
+  /* Allocate new file_entry */
+  struct file_entry *new_file_entry = malloc(sizeof(struct file_entry));
+  /* Initialize the file member of file_entry */
+  new_file_entry->file = file;
+  /* Increment the fd_count for the thread */
+  cur->fd_count += 1;
+  /* Get the new fd number */
+  int new_fd = cur->fd_count;
+  /* Set the fd number on the file_entry */
+  new_file_entry->fd = new_fd;
+  /* Append the file_entry to the file_table */
+  list_push_back(&cur->file_table, &new_file_entry->elem);
+  /* Return the fd number */
+  return new_fd;
 }
 
 bool valid_pointer(void *pointer, size_t len) {

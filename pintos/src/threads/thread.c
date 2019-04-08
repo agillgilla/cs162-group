@@ -467,6 +467,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exit_code = -1;
   t->wait_st = NULL;
   list_init (&t->children);
+  /* Init members for file syscalls */
+  list_init(&t->file_table);
+  /* fd 0 and 1 reserved for stdin/stdout */
+  t->fd_count = 2;
 
   t->magic = THREAD_MAGIC;
 
