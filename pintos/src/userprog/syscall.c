@@ -7,6 +7,10 @@
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include "devices/shutdown.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "filesys/inode.h"
+#include "filesys/directory.h"
 
 
 static void syscall_handler (struct intr_frame *);
@@ -14,6 +18,7 @@ bool valid_string(char *str);
 bool valid_pointer(void *pointer, size_t len);
 void validate_pointer(uint32_t *eax_reg, void *pointer, size_t len);
 void validate_string(uint32_t *eax_reg, char *str);
+int open_fd(struct file *file);
 
 
 void
@@ -29,7 +34,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   //printf("System call number: %d\n", args[0]);
 
   validate_pointer(&f->eax, args, sizeof(uint32_t));
-  
+
   if (args[0] == SYS_PRACTICE) {
     f->eax = args[1] + 1;
   } else if (args[0] == SYS_HALT) {
@@ -44,9 +49,9 @@ syscall_handler (struct intr_frame *f UNUSED)
   } else if (args[0] == SYS_WAIT) {
   	f->eax = process_wait(args[1]);
 	} else if (args[0] == SYS_CREATE) {
-		f->eax = filesys_create((char *) args[1], args[2], false);
+		f->eax = filesys_create((char *)args[1], args[2]);
 	} else if (args[0] == SYS_REMOVE) {
-
+    f->eax = filesys_remove((char *) args[1]);
 	} else if (args[0] == SYS_OPEN) {
 		struct file *file = filesys_open((char *) args[1]);
 		if (file == NULL) {
@@ -55,9 +60,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 			f->eax = open_fd(file);
 		}
 	} else if (args[0] == SYS_FILESIZE) {
-		
+
 	} else if (args[0] == SYS_READ) {
-		
+
 	} else if (args[0] == SYS_WRITE) {
 		if (args[1] == 1) {
 			/* Write syscall with fd set to 1, so write to stdout */
@@ -65,11 +70,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 	    f->eax = args[3];
 		}
 	} else if (args[0] == SYS_SEEK) {
-		
+
 	} else if (args[0] == SYS_TELL) {
-		
+
 	} else if (args[0] == SYS_CLOSE) {
-		
+
 	}
 }
 
