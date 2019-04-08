@@ -24,6 +24,7 @@ static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void fill_stack(char *argv[], size_t argc, struct intr_frame *esp);
+static struct wait_status *try_get_wait_st(tid_t child_tid);
 
 /* exec_info is data structure to be created in process_execute(...)
    and passed to start_process to track loading of new process.
@@ -159,8 +160,10 @@ start_process (void *exec_inf_)
       /* Set the members of wait_status we created */
       exec_inf->wait_status->ref_count = 2;
       exec_inf->wait_status->child_tid = thread_current()->tid;
+	  exec_inf->wait_status->exit_code = -1;
       sema_init (&(exec_inf->wait_status->sema), 0);
       lock_init (&(exec_inf->wait_status->lock));
+	  list_push_back(&thread_current()->children, &exec_inf->wait_status->elem);
     }
 
     palloc_free_page(file_name);
@@ -239,10 +242,36 @@ fill_stack(char *argv[], size_t argc, struct intr_frame *if_) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED)
+process_wait (tid_t child_tid)
 {
-  sema_down (&temporary);
-  return 0;
+	sema_down(&temporary);
+	return 0;
+
+	int exit_code = -1;
+	struct wait_status *child_wait_st = try_get_wait_st(child_tid);
+	if (child_wait_st == NULL) {
+		return exit_code;
+	}
+	sema_down(&child_wait_st->sema);
+	list_remove(&child_wait_st->elem);
+	exit_code = child_wait_st->exit_code;
+	return exit_code;
+}
+
+struct wait_status*
+try_get_wait_st(tid_t child_tid) {
+	struct thread *cur_thread = thread_current();
+	struct list_elem *cur_child = list_begin(&cur_thread->children);
+	struct list_elem *last_child = list_end(&cur_thread->children);
+
+	while (cur_child != last_child) {
+		struct wait_status *child_wait_st = list_entry(cur_child, struct wait_status, elem);
+		cur_child = list_next(cur_child);
+		if (child_wait_st->child_tid == child_tid) {
+			return child_wait_st;
+		}
+	}
+	return NULL;
 }
 
 /* Free the current process's resources. */
