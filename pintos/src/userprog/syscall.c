@@ -36,7 +36,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     shutdown_power_off();
   } else if (args[0] == SYS_EXIT) {
     f->eax = args[1];
-    printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
+    //printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
+	thread_current()->wait_st->exit_code = args[1];
     thread_exit();
   } else if (args[0] == SYS_EXEC) {
     f->eax = process_execute((char *)args[1]);
@@ -90,7 +91,8 @@ bool valid_string(char *str) {
 void validate_pointer(uint32_t *eax_reg, void *pointer, size_t len) {
 	if (!valid_pointer(pointer, len)) {
 		*eax_reg = -1;
-		printf("%s: exit(%d)\n", &thread_current ()->name, -1);
+		//printf("%s: exit(%d)\n", &thread_current ()->name, -1);
+		thread_current()->wait_st->exit_code = -1;
 	  thread_exit ();
 	  NOT_REACHED ();
 	}
@@ -99,7 +101,8 @@ void validate_pointer(uint32_t *eax_reg, void *pointer, size_t len) {
 void validate_string(uint32_t *eax_reg, char *str) {
 	if (!valid_string(str)) {
 		*eax_reg = -1;
-		printf("%s: exit(%d)\n", &thread_current ()->name, -1);
+		//printf("%s: exit(%d)\n", &thread_current ()->name, -1);
+		thread_current()->wait_st->exit_code = -1;
 	  thread_exit ();
 	  NOT_REACHED ();
 	}

@@ -301,7 +301,8 @@ process_exit (void)
   /* Set exit code and up wait_status sema */
   if (cur->wait_st != NULL) {
     
-    cur->wait_st->exit_code = cur->exit_code;
+    //cur->wait_st->exit_code = cur->exit_code;
+	printf("%s: exit(%d)\n", &cur->name, cur->wait_st->exit_code);
     sema_up (&cur->wait_st->sema);
     
     int ref_count;
@@ -315,7 +316,7 @@ process_exit (void)
       free(cur->wait_st);
     }*/
   }
-
+  
 }
 
 /* Sets up the CPU for running user code in the current
