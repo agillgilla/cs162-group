@@ -41,7 +41,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   } else if (args[0] == SYS_EXEC) {
     f->eax = process_execute((char *)args[1]);
   } else if (args[0] == SYS_WAIT) {
-  	 f->eax = process_wait(args[1]);
+  	f->eax = process_wait(args[1]);
 	} else if (args[0] == SYS_CREATE) {
 
 	} else if (args[0] == SYS_REMOVE) {

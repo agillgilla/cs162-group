@@ -20,7 +20,6 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void fill_stack(char *argv[], size_t argc, struct intr_frame *esp);
@@ -48,7 +47,6 @@ process_execute (const char *file_name)
 
   struct exec_info exec_inf;
 
-  sema_init (&temporary, 0);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -75,7 +73,7 @@ process_execute (const char *file_name)
   } else {
     /* Wait for child to finish loading */
     sema_down(&(exec_inf.load_sema));
-    
+
     /* Child is finished loading */
     if (!exec_inf.success) {
       /* Error on load */
@@ -142,11 +140,9 @@ start_process (void *exec_inf_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
-  /* If load failed, quit. */
-  if (!success) {
-    palloc_free_page(file_name);
-    thread_exit ();
-  } else {
+  bool complete_success = success;
+
+  if (success) {
     /* Push arguments to stack */
     fill_stack(argv, argc, &if_);
 
@@ -160,22 +156,25 @@ start_process (void *exec_inf_)
       /* Set the members of wait_status we created */
       exec_inf->wait_status->ref_count = 2;
       exec_inf->wait_status->child_tid = thread_current()->tid;
-	  exec_inf->wait_status->exit_code = -1;
+	    exec_inf->wait_status->exit_code = -1;
       sema_init (&(exec_inf->wait_status->sema), 0);
       lock_init (&(exec_inf->wait_status->lock));
-	  list_push_back(&thread_current()->children, &exec_inf->wait_status->elem);
+	    list_push_back(&thread_current()->children, &exec_inf->wait_status->elem);
     }
 
     palloc_free_page(file_name);
   
-    /* Done loading, wake up parent and set success flag */
-    exec_inf->success = success && malloc_success;
-    sema_up (&exec_inf->load_sema);
+    /* Set success flag */
+    complete_success = complete_success && malloc_success;
+  } 
+  /* Set member success flag of exec_info */
+  exec_inf->success = complete_success;
+  /* Done loading, wake up parent */
+  sema_up (&exec_inf->load_sema);
 
-    /* Exit thread if we didn't load successfully */
-    if (!(success && malloc_success)) {
-      thread_exit ();
-    }
+  /* Exit thread if we didn't load successfully */
+  if (!complete_success) {
+    thread_exit ();
   }
 
   /* Start the user process by simulating a return from an
@@ -246,14 +245,12 @@ process_wait (tid_t child_tid)
 {
 	//sema_down(&temporary);
 	//return 0;
-
-  
 	int exit_code = -1;
 	struct wait_status *child_wait_st = try_get_wait_st(child_tid);
 
 	if (child_wait_st == NULL) {
 		return exit_code;
-	}
+	}   
 
 	sema_down(&child_wait_st->sema);
 	list_remove(&child_wait_st->elem);
@@ -300,8 +297,25 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  sema_up (&temporary);
-  sema_up (&cur->wait_st->sema);
+
+  /* Set exit code and up wait_status sema */
+  if (cur->wait_st != NULL) {
+    
+    cur->wait_st->exit_code = cur->exit_code;
+    sema_up (&cur->wait_st->sema);
+    
+    int ref_count;
+
+    lock_acquire (&cur->wait_st->lock);
+    cur->wait_st->ref_count -= 1;
+    ref_count = cur->wait_st->ref_count;
+    lock_release (&cur->wait_st->lock);
+
+    /*if (ref_count == 0) {
+      free(cur->wait_st);
+    }*/
+  }
+
 }
 
 /* Sets up the CPU for running user code in the current
