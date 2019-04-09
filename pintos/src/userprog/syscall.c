@@ -78,11 +78,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 			f->eax = file_write(file, (void *) args[2], (off_t) args[3]);
 		}
 	} else if (args[0] == SYS_SEEK) {
-
+    struct file *file = fd_to_file(args[1]);
+    f->eax = file_seek(file, (off_t) args[2]);
 	} else if (args[0] == SYS_TELL) {
+    struct file *file = fd_to_file(args[1]);
+    f->eax = file_tell(file);
 
 	} else if (args[0] == SYS_CLOSE) {
-
+    struct file *file = fd_to_file(args[1]);
+    f->eax = file_close(file);
 	}
 }
 
