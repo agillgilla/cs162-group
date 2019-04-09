@@ -63,15 +63,19 @@ syscall_handler (struct intr_frame *f UNUSED)
 	}
   /* File syscalls with file as input */
   if (args[0] == SYS_FILESIZE) {
-
+  	struct file *file = fd_to_file(args[1]);
+  	f->eax = file_length(file);
 	} else if (args[0] == SYS_READ) {
-    // struct file *file= fd_to_file(args[1]);
-    // f->eax = file_read(file, (int *) args[2], args[3]);
+    struct file *file = fd_to_file(args[1]);
+    f->eax = file_read(file, (void *) args[2], (off_t) args[3]);
 	} else if (args[0] == SYS_WRITE) {
 		if (args[1] == 1) {
 			/* Write syscall with fd set to 1, so write to stdout */
 	    putbuf((void *) args[2], args[3]);
 	    f->eax = args[3];
+		} else {
+			struct file *file = fd_to_file(args[1]);
+			f->eax = file_write(file, (void *) args[2], (off_t) args[3]);
 		}
 	} else if (args[0] == SYS_SEEK) {
 
