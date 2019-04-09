@@ -131,6 +131,9 @@ struct wait_status
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
+/* Global file system lock for filesystem concurrency */
+extern struct lock file_sys_lock;
+
 void thread_init (void);
 void thread_start (void);
 

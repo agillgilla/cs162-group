@@ -43,39 +43,77 @@ syscall_handler (struct intr_frame *f UNUSED)
   } else if (args[0] == SYS_EXIT) {
     f->eax = args[1];
     //printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
-	thread_current()->wait_st->exit_code = args[1];
+		thread_current()->wait_st->exit_code = args[1];
     thread_exit();
   } else if (args[0] == SYS_EXEC) {
     f->eax = process_execute((char *)args[1]);
   } else if (args[0] == SYS_WAIT) {
   	f->eax = process_wait(args[1]);
 	} else if (args[0] == SYS_CREATE) {
-		f->eax = filesys_create((char *)args[1], args[2]);
+		if ((char *) args[1] == (char *) NULL) {
+			thread_current()->wait_st->exit_code = -1;
+    	thread_exit();
+		} else {
+			validate_string(&f->eax, (char *)&args[1]);
+
+			lock_acquire (&file_sys_lock);
+			f->eax = filesys_create((char *)args[1], args[2]);
+			lock_release (&file_sys_lock);
+		}
 	} else if (args[0] == SYS_REMOVE) {
+		lock_acquire (&file_sys_lock);
     f->eax = filesys_remove((char *) args[1]);
+    lock_release (&file_sys_lock);
 	} else if (args[0] == SYS_OPEN) {
-		struct file *file = filesys_open((char *) args[1]);
-		if (file == NULL) {
+		if (args[1] == NULL) {
 			f->eax = -1;
 		} else {
-			f->eax = open_fd(file);
+			validate_string(&f->eax, (char *)&args[1]);
+			
+			lock_acquire (&file_sys_lock);
+			struct file *file = filesys_open((char *) args[1]);
+			lock_release (&file_sys_lock);
+			if (file == NULL) {
+				f->eax = -1;
+			} else {
+				f->eax = open_fd(file);
+			}
 		}
 	}
   /* File syscalls with file as input */
   if (args[0] == SYS_FILESIZE) {
   	struct file *file = fd_to_file(args[1]);
+  	lock_acquire (&file_sys_lock);
   	f->eax = file_length(file);
+  	lock_release (&file_sys_lock);
 	} else if (args[0] == SYS_READ) {
+		validate_string(&f->eax, (char *)&args[1]);
+
     struct file *file = fd_to_file(args[1]);
-    f->eax = file_read(file, (void *) args[2], (off_t) args[3]);
+    if (file == NULL) {
+    	f->eax = -1;
+    } else {
+	    lock_acquire (&file_sys_lock);
+	    f->eax = file_read(file, (void *) args[2], (off_t) args[3]);
+	    lock_release (&file_sys_lock);
+  	}
 	} else if (args[0] == SYS_WRITE) {
+
 		if (args[1] == 1) {
 			/* Write syscall with fd set to 1, so write to stdout */
 	    putbuf((void *) args[2], args[3]);
 	    f->eax = args[3];
 		} else {
+			validate_pointer(&f->eax, args[2], args[3]);
+
 			struct file *file = fd_to_file(args[1]);
-			f->eax = file_write(file, (void *) args[2], (off_t) args[3]);
+			if (file == NULL) {
+				f->eax = -1;
+			} else {
+				lock_acquire (&file_sys_lock);
+				f->eax = file_write(file, (void *) args[2], (off_t) args[3]);
+				lock_release (&file_sys_lock);
+			}
 		}
 	} else if (args[0] == SYS_SEEK) {
 
@@ -137,12 +175,19 @@ bool valid_string(char *str) {
 		return false;
 	}
 	/* Check if the string is actually mapped in page memory */
-  char *kernel_page_str = pagedir_get_page(thread_current()->pagedir, str);
-  char *end_str = str + strlen(kernel_page_str) + 1;
-  if (kernel_page_str == NULL ||
-  	!(is_user_vaddr(end_str) && pagedir_get_page(thread_current()->pagedir, end_str) != NULL)) {
-    return false;
+  char *kernel_page_str = pagedir_get_page(thread_current()->pagedir, (void *) str);
+
+  if (kernel_page_str == NULL) {
+  	printf("GOT HERE\n");
+  	return false;
+  } else {
+  	char *end_str = str + strlen(kernel_page_str) + 1;
+
+  	if (!is_user_vaddr(end_str) || pagedir_get_page(thread_current()->pagedir, end_str) == NULL) {
+  		return false;
+  	}
   }
+
 	return true;
 }
 
