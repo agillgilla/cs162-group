@@ -98,6 +98,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  	thread_exit ();
 		}
 
+		if (args[1] < 0 || args[1] > thread_current()->fd_count) {
+			/* Invalid fd, error and exit process */
+			thread_current()->wait_st->exit_code = -1;
+	  	thread_exit ();
+		}
+
     struct file *file = fd_to_file(args[1]);
     if (file == NULL) {
     	f->eax = -1;
@@ -107,6 +113,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 	    lock_release (&file_sys_lock);
   	}
 	} else if (args[0] == SYS_WRITE) {
+
+		if (args[1] < 0 || args[1] > thread_current()->fd_count) {
+			/* Invalid fd, error and exit process */
+			thread_current()->wait_st->exit_code = -1;
+	  	thread_exit ();
+		}
 
 		if (args[1] == 1) {
 			/* Write syscall with fd set to 1, so write to stdout */
@@ -144,12 +156,12 @@ int open_fd(struct file *file) {
   struct file_entry *new_file_entry = malloc(sizeof(struct file_entry));
   /* Initialize the file member of file_entry */
   new_file_entry->file = file;
-  /* Increment the fd_count for the thread */
-  cur->fd_count += 1;
   /* Get the new fd number */
   int new_fd = cur->fd_count;
   /* Set the fd number on the file_entry */
   new_file_entry->fd = new_fd;
+  /* Increment the fd_count for the thread */
+  cur->fd_count += 1;
   /* Append the file_entry to the file_table */
   list_push_back(&cur->file_table, &new_file_entry->elem);
   /* Return the fd number */
