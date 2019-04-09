@@ -11,6 +11,8 @@
 #include "filesys/file.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "threads/malloc.h"
+#include <string.h>
 
 
 static void syscall_handler (struct intr_frame *);
@@ -42,8 +44,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     shutdown_power_off();
   } else if (args[0] == SYS_EXIT) {
     f->eax = args[1];
-    //printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
-		thread_current()->wait_st->exit_code = args[1];
+	thread_current()->wait_st->exit_code = args[1];
     thread_exit();
   } else if (args[0] == SYS_EXEC) {
   	validate_string(&f->eax, (char *)args[1]);
@@ -63,8 +64,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 		}
 	} else if (args[0] == SYS_REMOVE) {
 		lock_acquire (&file_sys_lock);
-    f->eax = filesys_remove((char *) args[1]);
-    lock_release (&file_sys_lock);
+		f->eax = filesys_remove((char *) args[1]);
+		lock_release (&file_sys_lock);
 	} else if (args[0] == SYS_OPEN) {
 		if (args[1] == NULL) {
 			f->eax = -1;
