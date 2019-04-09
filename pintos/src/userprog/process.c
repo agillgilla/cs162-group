@@ -64,7 +64,7 @@ process_execute (const char *file_name)
   /* Init members of exec_info */
   exec_inf.file_name = fn_copy;
   sema_init (&exec_inf.load_sema, 0);
-  
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (thread_name, PRI_DEFAULT, start_process, &exec_inf);
 
@@ -108,7 +108,7 @@ start_process (void *exec_inf_)
   /* Init argc to 0 */
   size_t argc = 0;
   /* Iterate through copy of input string to count argc */
-  while (token_count != NULL) 
+  while (token_count != NULL)
   {
     token_count = strtok_r(NULL, " ", &strtok_ptr_count);
     /* New word, increment argc */
@@ -120,10 +120,10 @@ start_process (void *exec_inf_)
   char *strtok_ptr;
   /* Start tokenizing file name */
   char *token = strtok_r(file_name, " ", &strtok_ptr);
-  
+
   /* Fill argv with split words */
   int i = 0;
-  while (token != NULL) 
+  while (token != NULL)
   {
     /* Copy token address to appropriate argv index */
     argv[i] = token;
@@ -148,8 +148,8 @@ start_process (void *exec_inf_)
 
     /* Set wait_status of exec_info */
     thread_current()->wait_st = malloc(sizeof(*exec_inf->wait_status));
-    exec_inf->wait_status = thread_current()->wait_st;  
-    
+    exec_inf->wait_status = thread_current()->wait_st;
+
     bool malloc_success = exec_inf->wait_status != NULL;
     /* Check if malloc was successful */
     if (malloc_success) {
@@ -163,10 +163,10 @@ start_process (void *exec_inf_)
     }
 
     palloc_free_page(file_name);
-  
+
     /* Set success flag */
     complete_success = complete_success && malloc_success;
-  } 
+  }
   /* Set member success flag of exec_info */
   exec_inf->success = complete_success;
   /* Done loading, wake up parent */
@@ -191,7 +191,7 @@ void
 fill_stack(char *argv[], size_t argc, struct intr_frame *if_) {
   /* Fake return address is 0 */
   size_t fake_ra = 0;
-  /* Initialize char array of argument addresses 
+  /* Initialize char array of argument addresses
      (addresses in char array exist on user stack) */
   char *arg_addrs[argc + 1];
 
@@ -224,7 +224,7 @@ fill_stack(char *argv[], size_t argc, struct intr_frame *if_) {
 
   /* Push argc */
   if_->esp -= 4;
-  *((int *) (if_->esp)) = argc;  
+  *((int *) (if_->esp)) = argc;
 
   /* Push fake return address */
   if_->esp -= 4;
@@ -250,7 +250,7 @@ process_wait (tid_t child_tid)
 
 	if (child_wait_st == NULL) {
 		return exit_code;
-	}   
+	}
 
 	sema_down(&child_wait_st->sema);
 	list_remove(&child_wait_st->elem);
@@ -281,6 +281,9 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  /* Close the running file. */
+  file_close(cur->exec_file);
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -300,11 +303,11 @@ process_exit (void)
 
   /* Set exit code and up wait_status sema */
   if (cur->wait_st != NULL) {
-    
+
     //cur->wait_st->exit_code = cur->exit_code;
 	printf("%s: exit(%d)\n", &cur->name, cur->wait_st->exit_code);
     sema_up (&cur->wait_st->sema);
-    
+
     int ref_count;
 
     lock_acquire (&cur->wait_st->lock);
@@ -316,7 +319,6 @@ process_exit (void)
       free(cur->wait_st);
     }*/
   }
-  
 }
 
 /* Sets up the CPU for running user code in the current
@@ -432,6 +434,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done;
     }
 
+  /* Deny writes from other threads. */
+  file_deny_write(file);
+
+  /* Assign current running file in thread. */
+  t->exec_file = file;
+
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -515,7 +523,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  // file_close (t->exec_file);
   return success;
 }
 

@@ -471,6 +471,8 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->file_table);
   /* fd 0 and 1 reserved for stdin/stdout */
   t->fd_count = 2;
+  /* Init current running file */
+  t->exec_file = NULL;
 
   t->magic = THREAD_MAGIC;
 
