@@ -19,6 +19,7 @@ bool valid_pointer(void *pointer, size_t len);
 void validate_pointer(uint32_t *eax_reg, void *pointer, size_t len);
 void validate_string(uint32_t *eax_reg, char *str);
 int open_fd(struct file *file);
+struct file* fd_to_file(int fd);
 
 
 void
@@ -59,10 +60,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 		} else {
 			f->eax = open_fd(file);
 		}
-	} else if (args[0] == SYS_FILESIZE) {
+	}
+  /* File syscalls with file as input */
+  if (args[0] == SYS_FILESIZE) {
 
 	} else if (args[0] == SYS_READ) {
-
+    // struct file *file= fd_to_file(args[1]);
+    // f->eax = file_read(file, (int *) args[2], args[3]);
 	} else if (args[0] == SYS_WRITE) {
 		if (args[1] == 1) {
 			/* Write syscall with fd set to 1, so write to stdout */
@@ -95,6 +99,27 @@ int open_fd(struct file *file) {
   list_push_back(&cur->file_table, &new_file_entry->elem);
   /* Return the fd number */
   return new_fd;
+}
+
+struct file* fd_to_file(int fd) {
+  /* Get the current running thread */
+  struct thread *cur = thread_current ();
+  /* Get file_table from the running thread */
+  struct list f_table = cur->file_table;
+  /* Initialize the list entry point */
+  struct list_elem *entry;
+
+  /* Iterate through file_table to find the corresponding file entry */
+  for (entry = list_begin (&f_table); entry != list_end (&f_table);
+       entry = list_next (entry))
+    {
+      struct file_entry *f = list_entry (entry, struct file_entry, elem);
+      if (f->fd == fd) {
+        return f->file;
+      }
+    }
+    /* If no corresponding file descriptor, return NULL */
+    return NULL;
 }
 
 bool valid_pointer(void *pointer, size_t len) {
