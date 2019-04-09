@@ -85,8 +85,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     f->eax = file_tell(file);
 
 	} else if (args[0] == SYS_CLOSE) {
-    struct file *file = fd_to_file(args[1]);
-    file_close(file);
+    //struct file *file = fd_to_file(args[1]);
+    //file_close(file);
 	}
 }
 
