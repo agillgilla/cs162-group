@@ -26,6 +26,56 @@ The only deviation from our design document was correctly preventing file writes
 
 ## Student Testing Report
 
+### Test 1: Double Remove (Geminus):
+
+**Description:** This test is meant to make sure that the kernel behaves appropriately when a syscall to remove a file is called twice. 
+
+**Overview:** The test works by first creating a text file, opening a file handle to the file, removing it, and then removing it again.  The expectation is that the output shows the code running fine until the second remove, where the return value is `false` indicating that the syscall failed.
+
+**Output:**:
+```C
+Copying tests/userprog/geminus to scratch partition...
+qemu -hda /tmp/0uiF41ArSh.dsk -m 4 -net none -nographic -monitor null
+PiLo hda1
+Loading..........
+Kernel command line: -q -f extract run geminus
+Pintos booting with 4,088 kB RAM...
+382 pages available in kernel pool.
+382 pages available in user pool.
+Calibrating timer...  419,020,800 loops/s.
+hda: 5,040 sectors (2 MB), model "QM00001", serial "QEMU HARDDISK"
+hda1: 167 sectors (83 kB), Pintos OS kernel (20)
+hda2: 4,096 sectors (2 MB), Pintos file system (21)
+hda3: 102 sectors (51 kB), Pintos scratch (22)
+filesys: using hda2
+scratch: using hda3
+Formatting file system...done.
+Boot complete.
+Extracting ustar archive from scratch device into file system...
+Putting 'geminus' into the file system...
+Erasing ustar archive...
+Executing 'geminus':
+(geminus) begin
+(geminus) geminus.txt
+(geminus) end
+geminus: exit(0)
+Execution of 'geminus' complete.
+Timer: 63 ticks
+Thread: 5 idle ticks, 58 kernel ticks, 0 user ticks
+hda2 (filesys): 108 reads, 213 writes
+hda3 (scratch): 101 reads, 2 writes
+Console: 894 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...
+```
+
+**Result:**
+```C
+PASS
+```
+
+**Kernel Bugs:** Two bugs that would have affected the output of this test case would be 1) if the kernel simply didn't look up the file descriptor of the file to remove properly, the file wouldn't actually be removed, and 2) if the kernel didn't forward the return value of the filesystem call back to the `eax` register, then the test would fail because the return value wouldn't be `true` then `false`.
 
 ## Code Quality
 
