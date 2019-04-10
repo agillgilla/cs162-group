@@ -24,6 +24,7 @@ test_main (void)
     fail ("first remove() failed");
   }
 
+  /* Second remove should fail */
   bool success2 = remove ("geminus.txt");
 
   if (success2) {

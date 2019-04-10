@@ -137,8 +137,24 @@ syscall_handler (struct intr_frame *f UNUSED)
 			}
 		}
 	} else if (args[0] == SYS_SEEK) {
+
+		if (args[1] < 0 || args[1] > thread_current()->fd_count) {
+			/* Invalid fd, error and exit process */
+			thread_current()->wait_st->exit_code = -1;
+	  	thread_exit ();
+		}
+
     struct file *file = fd_to_file(args[1]);
-    file_seek(file, (off_t) args[2]);
+
+    if (file == NULL) {
+    	thread_current()->wait_st->exit_code = -1;
+	  	thread_exit ();
+  	}
+
+  	lock_acquire (&file_sys_lock);
+  	file_seek(file, (off_t) args[2]);
+  	lock_release (&file_sys_lock);
+    
 	} else if (args[0] == SYS_TELL) {
     struct file *file = fd_to_file(args[1]);
     f->eax = file_tell(file);
