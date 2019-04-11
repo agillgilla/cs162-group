@@ -24,7 +24,7 @@ The only deviation from our design document was correctly preventing file writes
 ## Reflection
 
 ### Task 1
-Nick started task 1 and wrote the starter code.  Arjun refined the code and so that argument addresses were pushed onto the stack and the other values were pushed properly to pass the tests.
+Nick started task 1 and wrote all the initial code.  Arjun refined the code and so that argument addresses were pushed onto the stack and the other values were pushed properly to pass the tests.
 
 ### Task 2
 Arjun set up the data structures for `wait`ing/`exec`ing and implemented the starting algorithms for loading processes.  Nick implemented the algorithms for waiting for processes (including using semaphores and setting exit codes.) Emma implemented write protection on currently running binary files.  Emma wrote the code in the syscall handler for `practice()`, `halt()`, and `exec()`.
