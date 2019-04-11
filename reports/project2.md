@@ -79,7 +79,7 @@ PASS
 
 ---
 
-### Test 1: Double Remove (Geminus):
+### Test 2: seek-bad-fd:
 
 **Description:** This test is meant to make sure that the kernel works for calling `seek(...)`, but fails on an invalid file descriptor. 
 
