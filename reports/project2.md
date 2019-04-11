@@ -23,6 +23,17 @@ The only deviation from our design document was correctly preventing file writes
 
 ## Reflection
 
+### Task 1
+Nick started task 1 and wrote the starter code.  Arjun refined the code and so that argument addresses were pushed onto the stack and the other values were pushed properly to pass the tests.
+
+### Task 2
+Arjun set up the data structures for `wait`ing/`exec`ing and implemented the starting algorithms for loading processes.  Nick implemented the algorithms for waiting for processes (including using semaphores and setting exit codes.) Emma implemented write protection on currently running binary files.  Emma wrote the code in the syscall handler for `practice()`, `halt()`, and `exec()`.
+
+### Task 3
+Arjun set up the data structures for file tables and the code to proplerly initialize them for each thread, as well as the algorithm to open a new file descriptor.  Nick cleaned up `printf()` statements for test output.  Emma wrote the algorithm to find a file object given a file descriptor.  Arjun implemented filesystem synchronization using a global lock.  Arjun implemented string and pointer validation for user arguments to syscalls, and checks on validitiy of file descriptors.
+
+### Tests
+Arjun wrote the tests.
 
 ## Student Testing Report
 
