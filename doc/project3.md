@@ -73,19 +73,52 @@ The only issues with our implementation is that it doesn't use LRU (when it prob
 
 ### Data structures and functions
 
+#### In `inode.c`:
+```C
 
+struct lock inode_list_lock;
+
+struct inode_disk {
+    block_sector_t direct_ptrs[124];      /* Array of direct pointers */
+    block_sector_t indirect_ptr;          /* Singly indirect pointer */
+    block_sector_t doubly_indirect_ptr;   /* Doubly indirect pointer */
+    
+    off_t length;                         /* File size in bytes. */
+    unsigned magic;                       /* Magic number. */
+}
+
+static block_sector_t byte_to_sector (const struct inode *inode, off_t pos);
+
+bool inode_create (block_sector_t sector, off_t length);
+
+void inode_close (struct inode *inode);
+
+off_t inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset);
+
+off_t inode_write_at (struct inode *inode, const void *buffer_, off_t size, off_t offset);
+```
 
 ### Algorithms
 
+First, we can change `byte_to_sector` to use the `length` of the `inode_disk` and find the sector that is necessary by going through direct, indirect, or doubly indirect pointers as necessary, rather than assuming that the data is stored in contiguous sectors.
 
+Second, since we are adding direct, indirect, and doubly indirect pointers to the `struct inode_disk`, we now have to handle the `inode_` functions differently so that we are intializing the data structure (and its members) properly, and handling it appropriately for creation, reads, writes, and closing.
+
+For `inode_create(...)`, we need to `malloc` the `inode_disk` properly and initialize it's length.
+
+For `indoe_close(...)`, we need to free the `inode_disk` struct and properly free the sectors that are now unused in the free map.
+
+For `inode_read_at(...)`, we have to decide if we are going to read/iterate through the direct, indirect, or doubly indirect pointers to get to the sector(s) we need to read from and properly read the data at the offset desired.
+
+For `inode_write_at(...)`, we must first check if the file needs to be extended, then allocate the apropriate sectors associated to the new pointers and call the functions necessary in `free-map.c` for reserving the sectors.
 
 ### Synchronization
 
-
+Since all of the `inode_` functions could possibly be called concurrently, we need a way of serializing them so that there is coherency, especially if there are multiple writes on a single `inode_disk`.  To deal with this, we simply use the `inode_list_lock` which must be acquired before doing **any** operations on the `inode`s in the `open_inodes` list in `inode.c`.
 
 ### Rationale
 
-
+This implementation we have come up with matches the requirements specified in the spec exactly.  It supports files over 8 MiB because 1 doubly indirect pointer does that on its own (`128 * 128 * 512 B = 8 MiB`.)   Our modifications to the `inode_disk` struct also are the most straightforward way to implement a Unix-y filesystem while having inodes fit in exactly `512 B`.  These modifications also make for the most simple and minimally invasive changes necessary to the existing filesystem while still satisfying the requirements.
 
 ---
 
