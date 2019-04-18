@@ -125,20 +125,56 @@ This implementation we have come up with matches the requirements specified in t
 ## Task 3: Subdirectories
 
 ### Data structures and functions
+```C
 
+struct thread {
+    ...
+    char working_dir[NAME_MAX + 1];
+}
 
+struct inode_disk {
+    ...
+    bool directory;
+}
 
+base_name(char *absolute);
+
+rel_to_abs(char *file);
+
+```
 ### Algorithms
 
+We will have to create a `char[]` in `struct thread` to keep track of the current working directory of the process.  As stated in section 4.4.3 of the spec, the current working directory will be set on thread creation in `thread_create` and will be inherited from the parent thread.
 
+We will add a `bool directory` member in `inode_disk` that is a flag set to `true` if it is for a directory `inode` and `false` for just a file.
+
+To implement the newly defined system calls, we will create two new helper functions `bas_name(...)` and `rel_to_abs(..)`. `base_name(...)` will return the base file name given an entire absolute path, for example for `home/foo/bar` it will return `bar`.  `rel_to_abs(...)` will convert a relative filename for the current process to an absolute path by appending the relative path to the `working_dir`.  This is to maintain consistency when doing operations so all paths are absolute.  `base_name(...)` will rely on the `get_next_part(...)` function outlined in the spec.
+
+For actual implementation of the new system calls:
+
+`bool chdir (const char *dir)`: This will simply set the `working_directory` array to the argument passed.
+
+`bool mkdir (const char *dir)`: This will create a new file like normal, except set the `directory` flag to `true`.
+
+`bool readdir (int fd, char *name)`: This will entail calling the `dir_readdir(...)` function in `directory.c`.
+
+`bool isdir (int fd)`: This will just lookup the directory at the given file descriptor and return the `directory` flag in the `inode_disk` for the directory.
+
+` int inumber (int fd)`: This will have to lookup the directory at the given file descriptor and call `inode_get_inumber(...)` in `inode.c`.
+
+***NOTE:*** When a directory is `remove`d while being in the `working_directory` of a process, we have to prevent new files from being created in it.  This entails calling `dir_remove(...)` appropriately when inspecting the absolute path of the directory when it is deleted so there are no references to ghost directories.
 
 ### Synchronization
 
-
+All of the file synchronization necessary for this part will already be handled in the buffer cache that acts as a gateway to file I/O operations.  Thus, there is no need for synchronization enforcement for adding subdirectories to the current filesystem implementation.
 
 ### Rationale
 
+The most logical approach to maintaining working directories for individual processes was to add a `char[]` to the `struct thread`, so that's why we did that.
 
+Also, the minimally-invasive way to distinguish between files and directories was to add the `directory` flag in the `inode_disk` struct.
+
+Lastly, we use the two helper functions to make sure we are always working with absolute paths since we can be handed either by the user process, as well as finding the base filename for operations that need to isolate it.
 
 ---
 
