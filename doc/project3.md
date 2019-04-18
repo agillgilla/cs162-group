@@ -180,4 +180,6 @@ Lastly, we use the two helper functions to make sure we are always working with 
 
 ## Additional Questions
 
-1. 
+1. To implement a write-behind cache, we can create a thread on top of the idle thread that loops forever calling `timer_sleep(FLUSH_INTERVAL)`, then writes out every block in the cache which has a dirty bit set to one, then sets all the dirty bits to 0.  A smaller `FLUSH_INTERVAL` will correlate with more frequenty saving of data, which a larger will do the opposite.
+
+To implement a read-ahead cache, we can simply load `PREFETCH_NUM` blocks past the block that is currently being accessed in the cache, and load it into the cache (evicting if necessary.)  We will simply load the sectors that are numerically one index higher than the one we are currently loading into the cache.  This doesn't have a practical application for Pintos, since the disk isn't actually fetching the data in one seek, but it serves the theoretical purpose of a read-ahead cache.
