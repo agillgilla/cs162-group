@@ -34,6 +34,39 @@ struct indirect_block {
 	block_sector_t block_ptrs[INDIRECT_BLOCK_PTRS];
 };
 
+static bool allocate_indirect_block(struct indirect_block *block, off_t start_index, off_t stop_index);
+static bool inode_alloc(struct inode_disk *inode_d);
+static bool inode_dealloc(struct inode *inode);
+static bool inode_extend(struct inode_disk *inode_d, off_t length);
+
+
+/* Allocates indirect pointers in the indirect_block passed in from start_index
+   to stop_index, inclusive. Returns true on success and false on failure. */
+static bool
+allocate_indirect_block(struct indirect_block *block, off_t start_index, off_t stop_index) {
+	ASSERT(start_index >= 0);
+	ASSERT(stop_index < INDIRECT_BLOCK_PTRS);
+
+	char empty[BLOCK_SECTOR_SIZE];
+
+	if (block == NULL) {
+		return false;
+	}
+	
+	off_t i;
+	for (i = start_index; i <= stop_index; i++) {
+		/* Allocate a new indirect block (block of pointers) */
+		if (!free_map_allocate(1, &block->block_ptrs[i])) {
+			return false;
+		}
+
+		/* Zero out indirect block */
+		block_write(fs_device, block->block_ptrs[i], empty);
+	}
+	
+	return true;
+}
+
 
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
@@ -65,7 +98,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
 {
   ASSERT (inode != NULL);
 
-  /* Change this to a buffer cache lookup later */
+  /* TODO: Change this to a buffer cache lookup later */
   struct inode_disk inode_d = inode->data;
 
   if (pos > inode_d.length || pos < 0) {
@@ -80,8 +113,8 @@ byte_to_sector (const struct inode *inode, off_t pos)
   off_t direct_limit = direct_base + DIRECT_PTRS;
   off_t indirect_base = direct_limit;
   off_t indirect_limit = indirect_base + INDIRECT_BLOCK_PTRS;
-  off_t double_indirect_base = indirect_limit;
-  off_t double_indirect_limit = double_indirect_base + INDIRECT_BLOCK_PTRS * INDIRECT_BLOCK_PTRS;
+  off_t doubly_indirect_base = indirect_limit;
+  off_t doubly_indirect_limit = doubly_indirect_base + INDIRECT_BLOCK_PTRS * INDIRECT_BLOCK_PTRS;
 
 
   if (block_index < direct_limit) {
@@ -104,7 +137,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
 	  free(inode_indirect);
 	  /* Return the sector number */
 	  return sector;
-  } else if (block_index < double_indirect_limit) {
+  } else if (block_index < doubly_indirect_limit) {
 	  /* Calculate the index of the indirect pointer within the doubly indirect block */
 	  off_t indirect_index_in_doubly_indirect = (block_index - indirect_limit) / INDIRECT_BLOCK_PTRS;
 	  /* Calculate the index of the direct pointer within the indirect block */
@@ -164,9 +197,10 @@ inode_create (block_sector_t sector, off_t length)
   if (disk_inode != NULL)
     {
       size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = length;
+      //disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
-      if (free_map_allocate (sectors, &disk_inode->start))
+      /*
+	  if (free_map_allocate (sectors, &disk_inode->start))
         {
           block_write (fs_device, sector, disk_inode);
           if (sectors > 0)
@@ -179,6 +213,14 @@ inode_create (block_sector_t sector, off_t length)
             }
           success = true;
         }
+		*/
+
+	  success = inode_alloc(disk_inode);
+
+	  success = inode_extend(disk_inode, length) && success;
+
+	  block_write(fs_device, sector, disk_inode);
+
       free (disk_inode);
     }
   return success;
@@ -208,6 +250,117 @@ inode_alloc(struct inode_disk *inode_d) {
 	return true;
 }
 
+/* Deallocates all memory for an inode.  This iterates through
+   the multi level indirect blocks and stops according to the
+   length of the inode. */
+static bool
+inode_dealloc(struct inode *inode) {
+	/* TODO: Change this to read from disk when we remove data member */
+	struct inode_disk inode_d = inode->data;
+
+	/* Calculate the current number of blocks allocated */
+	size_t curr_num_blocks = bytes_to_sectors(inode_d.length);
+
+	/* Calculate the current number of blocks allocated (number of blocks to deallocate) */
+	size_t blocks_to_deallocate = bytes_to_sectors(inode_d.length);
+
+	/* Bases and limits of direct pointers and indirect pointers */
+	off_t direct_base = 0;
+	off_t direct_limit = direct_base + DIRECT_PTRS;
+	off_t indirect_base = direct_limit;
+	off_t indirect_limit = indirect_base + INDIRECT_BLOCK_PTRS;
+
+	off_t i;
+	for (i = 0; i < DIRECT_PTRS; i++) {
+		inode_d.direct_ptrs[i] = 0;
+		free_map_release(inode_d.direct_ptrs[i], 1);
+
+		blocks_to_deallocate--;
+		if (blocks_to_deallocate <= 0) {
+			return true;
+		}
+	}
+
+	/* Check if we need to deallocate the indirect block */
+	if (curr_num_blocks > direct_limit) {
+		struct indirect_block *inode_indirect = calloc(1, sizeof(struct indirect_block));
+
+		/* Read the indirect block in from disk */
+		block_read(fs_device, inode_d.indirect_ptr, inode_indirect);
+
+		off_t i;
+		for (i = 0; i < INDIRECT_BLOCK_PTRS; i++) {
+			inode_indirect->block_ptrs[i] = 0;
+			/* Deallocate the direct block */
+			free_map_release(inode_indirect->block_ptrs[i], 1);
+
+			blocks_to_deallocate--;
+			if (blocks_to_deallocate <= 0) {
+				/* Deallocate the indirect block */
+				free_map_release(inode_d.indirect_ptr, 1);
+
+				/* Free the indirect_block struct */
+				free(inode_indirect);
+
+				return true;
+			}
+		}
+		/* Free the indirect_block struct */
+		free(inode_indirect);
+	}
+
+	/* Check if we need to deallocate the doubly indirect block */
+	if (curr_num_blocks > indirect_limit) {
+		struct indirect_block *doubly_indirect = calloc(1, sizeof(struct indirect_block));
+
+		/* Read the indirect block in from disk */
+		block_read(fs_device, inode_d.doubly_indirect_ptr, doubly_indirect);
+
+		off_t i;
+		for (i = 0; i < INDIRECT_BLOCK_PTRS; i++) {
+
+			struct indirect_block *inode_indirect = calloc(1, sizeof(struct indirect_block));
+
+			/* Read the indirect block in from disk */
+			block_read(fs_device, doubly_indirect->block_ptrs[i], inode_indirect);
+
+			off_t j;
+			for (j = 0; j < INDIRECT_BLOCK_PTRS; j++) {
+				inode_indirect->block_ptrs[j] = 0;
+				free_map_release(inode_indirect->block_ptrs[j], 1);
+
+				blocks_to_deallocate--;
+				if (blocks_to_deallocate <= 0) {
+					/* Deallocate the (second level) indirect block */
+					free_map_release(doubly_indirect->block_ptrs[i], 1);
+
+					/* Free the indirect_block struct */
+					free(inode_indirect);
+
+					/* Deallocate the doubly indirect block */
+					free_map_release(inode_d.doubly_indirect_ptr, 1);
+					
+					/* Free the doubly indirect block */
+					free(doubly_indirect);
+
+					return true;
+				}
+			}
+
+			/* Deallocate the (second level) indirect block */
+			free_map_release(doubly_indirect->block_ptrs[i], 1);
+
+			/* Free the indirect_block struct */
+			free(inode_indirect);
+		}
+	}
+	
+
+	
+	
+
+}
+
 /* Increases the available length of inode to the argument
    length provided. Returns true on success and false on 
    failure. */
@@ -217,9 +370,9 @@ inode_extend(struct inode_disk *inode_d, off_t length)
 	ASSERT(inode_d != NULL);
 	ASSERT(length >= 0);
 
-	/* Calculate the current last block and new last block indices */
+	/* Calculate the current number of blocks and new number of blocks */
 	size_t curr_num_blocks = bytes_to_sectors(inode_d->length);
-	size_t new_num_blocks = bytes_to_sector(length);
+	size_t new_num_blocks = bytes_to_sectors(length);
 
 
 	if (new_num_blocks < curr_num_blocks) {
@@ -243,8 +396,8 @@ inode_extend(struct inode_disk *inode_d, off_t length)
 	size_t direct_limit = direct_base + DIRECT_PTRS;
 	size_t indirect_base = direct_limit;
 	size_t indirect_limit = indirect_base + INDIRECT_BLOCK_PTRS;
-	size_t double_indirect_base = indirect_limit;
-	size_t double_indirect_limit = double_indirect_base + INDIRECT_BLOCK_PTRS * INDIRECT_BLOCK_PTRS;
+	size_t doubly_indirect_base = indirect_limit;
+	size_t doubly_indirect_limit = doubly_indirect_base + INDIRECT_BLOCK_PTRS * INDIRECT_BLOCK_PTRS;
 
 	/* Check if we need to point more direct blocks to memory (and do it
 	if we need to) */
@@ -325,73 +478,70 @@ inode_extend(struct inode_disk *inode_d, off_t length)
 		free(inode_indirect);
 	}
 
-	/* TODO: Allocate disk space for indirect blocks pointed to by pointers 
-	in doubly indirect block */
-
 	/* Check if we need to allocate more in doubly indirect block (either another
 	indirect pointer in the doubly indirect block or a direct pointer in an indirect
 	block pointed at from an indirect pointer in the doubly indirect block) (or both) */
+	/* Precondition: curr_num_blocks >= indirect_limit */
 	if (curr_num_blocks < doubly_indirect_limit && new_num_blocks > indirect_limit) {
-		off_t new_last_block_index = length / BLOCK_SECTOR_SIZE;
-		/* Calculate the index of the extra indirect pointer within the doubly indirect block */
-		off_t new_first_level_max = (new_last_block_index - indirect_limit) / INDIRECT_BLOCK_PTRS;
-		/* Calculate the index of the extra direct pointer within the indirect block */
-		off_t new_second_level_max = (new_last_block_index - indirect_limit) % INDIRECT_BLOCK_PTRS;
 
-		curr_block_index = (curr_num_blocks == indirect_limit) ? indirect_limit : curr_num_blocks - 1;
+		/* Calculate the index of the new last indirect pointer within the doubly indirect block */
+		off_t new_first_level_index = DIV_ROUND_UP(new_num_blocks - indirect_limit, INDIRECT_BLOCK_PTRS) - 1;
+		/* Calculate the index of the new last direct pointer within the indirect block */
+		off_t new_second_level_index = (new_num_blocks - indirect_limit) % INDIRECT_BLOCK_PTRS - 1;
 
-		off_t curr_first_level_index = (curr_num_blocks - indirect_limit) / INDIRECT_BLOCK_PTRS;
-		off_t curr_second_level_index = (curr_num_blocks - indirect_limit) % INDIRECT_BLOCK_PTRS;
+		/* Calculate the index of the current last indirect pointer within the doubly indirect block */
+		off_t curr_first_level_index = DIV_ROUND_UP(curr_num_blocks - indirect_limit, INDIRECT_BLOCK_PTRS) - 1;
+		/* Calculate the index of the current last direct pointer within the indirect block */
+		off_t curr_second_level_index = (curr_num_blocks - indirect_limit) % INDIRECT_BLOCK_PTRS - 1;
 
-		off_t blocks_to_add = new_num_blocks - curr_num_blocks;
+		/* Start and end of allocation in first level block of indirect pointers (doubly indirect block) */
+		off_t min_first_level = curr_first_level_index + 1;
+		off_t max_first_level = new_first_level_index;
 
-		if (curr_num_blocks == new_num_blocks) {
-
-		} else {
-
-			struct indirect_block *doubly_indirect = calloc(1, sizeof(struct indirect_block));
-
-			block_read(fs_device, inode_d->doubly_indirect_ptr, doubly_indirect);
-
-			unsigned i = curr_first_level_index;
-			while (i < INDIRECT_BLOCK_PTRS && blocks_to_add > 0) {
-				/* Allocate indirect pointer in doubly indirect block */
-				
-				if (!free_map_allocate(1, &doubly_indirect->block_ptrs[i])) {
-					return false;
-				}
-
-				struct indirect_block *indirect_block = calloc(1, sizeof(struct indirect_block));
-
-				block_read(fs_device, doubly_indirect->block_ptrs[i], indirect_block);
-
-				unsigned j;
-				for (j = curr_second_level_index; j < INDIRECT_BLOCK_PTRS; j++) {
-					/* Allocate direct pointer in indirect block pointed at from
-					an indirect pointer in the doubly indirect block */
-					
-					if (!free_map_allocate(1, &doubly_indirect->block_ptrs[i])) {
-					return false;
-				}
-
-
-
-					blocks_to_add--;
-					if (blocks_to_add == 0) {
-						break;
-					}
-				}
-				curr_second_level_index = 0;
-				i++;
-			}
-
-
+		struct indirect_block *doubly_indirect = calloc(1, sizeof(struct indirect_block));
+		/* Read doubly indirect block in from disk */
+		block_read(fs_device, inode_d->doubly_indirect_ptr, doubly_indirect);
+		/* Allocate first level indirect pointers as necessary (in doubly indirect block) */
+		if (!allocate_indirect_block(doubly_indirect, min_first_level, max_first_level)) {
+			return false;
 		}
 
-		
+		off_t i;
+		for (i = min_first_level; i <= max_first_level; i++) {
+			/* By default fill whole indirect block with direct block pointers */
+			off_t min = 0;
+			off_t max = INDIRECT_BLOCK_PTRS;
 
+			if (i == min_first_level) {
+				/* First iteration, start at the current block index in indirect block */
+				min = curr_second_level_index + 1;
+			}
+			if (i == max_first_level) {
+				/* Last iteration, end at new last block index in indirect block */
+				max = new_second_level_index;
+			}
+			
+			struct indirect_block *indirect_block = calloc(1, sizeof(struct indirect_block));
+			/* Read indirect block in from disk */
+			block_read(fs_device, doubly_indirect->block_ptrs[i], indirect_block);
+			/* Allocate second level direct pointers as necessary (singly indirect block) */
+			if (!allocate_indirect_block(indirect_block, min, max)) {
+				return false;
+			}
+			/* Write the indirect block out to disk */
+			block_write(fs_device, doubly_indirect->block_ptrs[i], indirect_block);
+			/* Free the struct */
+			free(indirect_block);
+		}
+		/* Write the doubly indirect block out to disk */
+		block_write(fs_device, inode_d->doubly_indirect_ptr, doubly_indirect);
+		/* Free the struct */
+		free(doubly_indirect);
 	}
 
+	inode_d->length = length;
+
+	return true;
 }
 
 /* Reads an inode from SECTOR
@@ -466,8 +616,9 @@ inode_close (struct inode *inode)
       if (inode->removed)
         {
           free_map_release (inode->sector, 1);
-          free_map_release (inode->data.start,
-                            bytes_to_sectors (inode->data.length));
+
+		  inode_dealloc(inode);
+          //free_map_release (inode->data.start, bytes_to_sectors (inode->data.length));
         }
 
       free (inode);
