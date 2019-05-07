@@ -57,7 +57,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     	thread_exit();
 		} else {
 				validate_string(&f->eax, (char *)args[1]);
-
+				
 				lock_acquire (&file_sys_lock);
 				if (args[0] == SYS_CREATE) {
 					/* New File. */
@@ -65,7 +65,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 				}
 				else { 
 					/* New Directory. */
-					f->eax = filesys_create((char *)args[1], 0, true);
+					if (!valid_pointer(&args[1], sizeof(uint32_t))) {
+						thread_current()->wait_st->exit_code = -1;
+						thread_exit();
+					}
+					else {
+						f->eax = filesys_create((char *)args[1], 0, true);
+					}
 				}
 				lock_release (&file_sys_lock);
 		}
@@ -81,13 +87,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 			
 			lock_acquire (&file_sys_lock);
 			struct file *file = filesys_open((char *) args[1]);
-			struct inode* file_inode = file_get_inode(file);
 			lock_release (&file_sys_lock);
 			if (file == NULL) {
 				f->eax = -1;
-			}
-			else if (inode_is_dir(file_inode)) {
-				f->eax = dir_open(file_inode);
 			}
 			else {
 				f->eax = open_fd(file);
