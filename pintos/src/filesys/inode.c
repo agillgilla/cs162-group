@@ -717,6 +717,19 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   if (inode->deny_write_cnt)
     return 0;
 
+  /* TODO: Change this to a buffer cache lookup later */
+  struct inode_disk inode_d = inode->data;
+
+  /* The new length is greater than current length, extend it */
+  if (offset + size - 1 > inode_d.length) {
+    /* Extend the length of the inode */
+    if (!inode_extend(&inode->data, offset + size)) {
+      return 0;
+    }
+    /* Write the inode_disk back to disk */
+    block_write(fs_device, inode->sector, &inode->data);
+  }
+
   while (size > 0)
     {
       /* Sector to write, starting byte offset within sector. */
