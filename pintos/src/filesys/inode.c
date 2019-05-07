@@ -723,13 +723,19 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
   /* The new length is greater than current length, extend it */
   if (offset + size - 1 > inode_d.length) {
+    //printf("Extending inode of length %zu to length: %zu...\n", inode_d.length, offset + size);
     /* Extend the length of the inode */
     if (!inode_extend(&inode->data, offset + size)) {
       return 0;
     }
+
+    inode->data.length = offset + size;
+
     /* Write the inode_disk back to disk */
     block_write(fs_device, inode->sector, &inode->data);
   }
+
+  //printf("Executing write of size %zu at offset %zu in inode of length: %zu...\n", size, offset, inode->data.length);
 
   while (size > 0)
     {
@@ -779,6 +785,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       bytes_written += chunk_size;
     }
   free (bounce);
+
+  //printf("Bytes written: %zu\n", bytes_written);
 
   return bytes_written;
 }
