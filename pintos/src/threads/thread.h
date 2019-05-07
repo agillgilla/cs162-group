@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "threads/synch.h"
 #include "threads/fixed-point.h"
+#include "filesys/directory.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -109,6 +110,7 @@ struct thread
 
 #endif
 
+	char working_dir[NAME_MAX + 1];		/* To keep track of the current process working directory. */
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

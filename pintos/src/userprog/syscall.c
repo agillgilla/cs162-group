@@ -51,7 +51,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     f->eax = process_execute((char *)args[1]);
   } else if (args[0] == SYS_WAIT) {
   	f->eax = process_wait(args[1]);
-	} else if (args[0] == SYS_CREATE) {
+	} else if (args[0] == SYS_CREATE || args[0] == SYS_MKDIR) {
 		if ((char *) args[1] == (char *) NULL) {
 			thread_current()->wait_st->exit_code = -1;
     	thread_exit();
@@ -59,7 +59,14 @@ syscall_handler (struct intr_frame *f UNUSED)
 				validate_string(&f->eax, (char *)args[1]);
 
 				lock_acquire (&file_sys_lock);
-				f->eax = filesys_create((char *)args[1], args[2]);
+				if (args[0] == SYS_CREATE) {
+					/* New File. */
+					f->eax = filesys_create((char *)args[1], args[2], false);
+				}
+				else { 
+					/* New Directory. */
+					f->eax = filesys_create((char *)args[1], 0, true);
+				}
 				lock_release (&file_sys_lock);
 		}
 	} else if (args[0] == SYS_REMOVE) {
@@ -81,6 +88,14 @@ syscall_handler (struct intr_frame *f UNUSED)
 				f->eax = open_fd(file);
 			}
 			
+		}
+	} else if (args[0] == SYS_ISDIR) {
+		if (!((char *)args[1] == (char *)NULL)) {
+			struct file *file = fd_to_file(args[1]);
+			if (file != NULL) {
+				struct inode* inode = file_get_inode(file);
+				f->eax = inode_is_dir(inode);
+			}
 		}
 	}
   /* File syscalls with file as input */
