@@ -174,6 +174,11 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.inode_sector = inode_sector;
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
+  if (success) {
+	  struct inode *new_inode = inode_open(inode_sector);
+	  inode_set_parent(new_inode, dir_get_inode(dir));
+  }
+
  done:
   return success;
 }

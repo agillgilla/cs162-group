@@ -104,15 +104,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 				f->eax = inode_is_dir(inode);
 			}
 		}
-	} 
+	}
   /* File syscalls with file as input */
   if (args[0] == SYS_FILESIZE) {
   	struct file *file = fd_to_file(args[1]);
   	lock_acquire (&file_sys_lock);
   	f->eax = file_length(file);
   	lock_release (&file_sys_lock);
-	} else if (args[0] == SYS_READ) {
-		validate_pointer(&f->eax, (void *) args[2], (size_t) args[3]);
+  } else if (args[0] == SYS_READ) {
+	    validate_pointer(&f->eax, (void *) args[2], (size_t) args[3]);
 
 		if (args[1] == 1) {
 			/* Read from stdout, error and exit process */
@@ -126,16 +126,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  	thread_exit ();
 		}
 
-    struct file *file = fd_to_file(args[1]);
-    if (file == NULL) {
-    	f->eax = -1;
-    } else {
-	    lock_acquire (&file_sys_lock);
-	    f->eax = file_read(file, (void *) args[2], (off_t) args[3]);
-	    lock_release (&file_sys_lock);
-  	}
-	} else if (args[0] == SYS_WRITE) {
-
+        struct file *file = fd_to_file(args[1]);
+        if (file == NULL) {
+    	    f->eax = -1;
+        } else {
+	        lock_acquire (&file_sys_lock);
+	        f->eax = file_read(file, (void *) args[2], (off_t) args[3]);
+	        lock_release (&file_sys_lock);
+  	    }
+  } else if (args[0] == SYS_WRITE) {
 		if (args[1] < 0 || args[1] > thread_current()->fd_count) {
 		  /* Invalid fd, error and exit process */
 		  thread_current()->wait_st->exit_code = -1;
@@ -159,7 +158,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 				lock_release (&file_sys_lock);
 			}
 		}
-	} else if (args[0] == SYS_SEEK) {
+  } else if (args[0] == SYS_SEEK) {
 
 		if (args[1] < 0 || args[1] > thread_current()->fd_count) {
 			/* Invalid fd, error and exit process */
@@ -178,14 +177,23 @@ syscall_handler (struct intr_frame *f UNUSED)
   	file_seek(file, (off_t) args[2]);
   	lock_release (&file_sys_lock);
     
-	} else if (args[0] == SYS_TELL) {
+  } else if (args[0] == SYS_TELL) {
     struct file *file = fd_to_file(args[1]);
     f->eax = file_tell(file);
 
-	} else if (args[0] == SYS_CLOSE) {
+  } else if (args[0] == SYS_CLOSE) {
     //struct file *file = fd_to_file(args[1]);
     //file_close(file);
-	}
+  }
+  else if (args[0] == SYS_READDIR) {
+	  //TODO
+	  //struct file *file = fd_to_file(args[1]);
+	  //f->eax = dir_readdir((struct dir *)file, (char name[15])args[1]));
+  }
+  else if (args[0] == SYS_CHDIR) {
+	  validate_string(&f->eax, args[1]);
+	  f->eax = filesys_chdir((char *)args[1]);
+  }
 }
 
 int open_fd(struct file *file) {

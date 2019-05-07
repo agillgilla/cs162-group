@@ -110,6 +110,12 @@ get_next_part(char part[NAME_MAX + 1], const char **srcp) {
 	return 1;
 }
 
+bool
+filesys_chdir(const char *syscall_arg)
+{
+  
+}
+
 void
 rel_to_abs(char *file) {
 	//TODO

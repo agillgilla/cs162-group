@@ -192,7 +192,7 @@ thread_create (const char *name, int priority,
 
   /* Set working directory to parent working directory. */
   cur_t = thread_current();
-  strlcpy(t->working_dir, cur_t->working_dir, NAME_MAX + 1);
+  t->working_dir = cur_t->working_dir;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);

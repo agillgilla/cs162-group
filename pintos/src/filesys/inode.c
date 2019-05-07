@@ -11,7 +11,7 @@
 #define INODE_MAGIC 0x494e4f44
 
 /* Number of direct pointers in inode_disk */
-#define DIRECT_PTRS 123
+#define DIRECT_PTRS 122
 
 /* Number of pointers in a block pointed to by an indirect pointer */
 #define INDIRECT_BLOCK_PTRS 128
@@ -23,7 +23,8 @@ struct inode_disk {
   block_sector_t indirect_ptr;              /* Singly indirect pointer */
   block_sector_t doubly_indirect_ptr;       /* Doubly indirect pointer */
 
-	bool directory;                           /* True if inode is directory */
+  bool directory;                           /* True if inode is directory. */
+  struct inode *parent_node;			    /* Link to parent directory. */
     
   off_t length;                             /* File size in bytes. */
   unsigned magic;                           /* Magic number. */
@@ -807,4 +808,11 @@ off_t
 inode_length (const struct inode *inode)
 {
   return inode->data.length;
+}
+
+/* Set dest_inode's data disk_node parent directory to parent_inode. */
+void
+inode_set_parent(struct inode *dest_inode, const struct inode *parent_inode) 
+{
+	dest_inode->data.parent_node = parent_inode;
 }

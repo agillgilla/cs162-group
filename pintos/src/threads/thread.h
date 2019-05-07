@@ -110,7 +110,7 @@ struct thread
 
 #endif
 
-	char working_dir[NAME_MAX + 1];		/* To keep track of the current process working directory. */
+	struct dir *working_dir;		    /* To keep track of the current process working directory. */
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
