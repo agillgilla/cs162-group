@@ -81,10 +81,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 			
 			lock_acquire (&file_sys_lock);
 			struct file *file = filesys_open((char *) args[1]);
+			struct inode* file_inode = file_get_inode(file);
 			lock_release (&file_sys_lock);
 			if (file == NULL) {
 				f->eax = -1;
-			} else {
+			}
+			else if (inode_is_dir(file_inode)) {
+				f->eax = dir_open(file_inode);
+			}
+			else {
 				f->eax = open_fd(file);
 			}
 			
@@ -97,7 +102,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 				f->eax = inode_is_dir(inode);
 			}
 		}
-	}
+	} 
   /* File syscalls with file as input */
   if (args[0] == SYS_FILESIZE) {
   	struct file *file = fd_to_file(args[1]);
@@ -130,20 +135,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 	} else if (args[0] == SYS_WRITE) {
 
 		if (args[1] < 0 || args[1] > thread_current()->fd_count) {
-			/* Invalid fd, error and exit process */
-			thread_current()->wait_st->exit_code = -1;
-	  	thread_exit ();
+		  /* Invalid fd, error and exit process */
+		  thread_current()->wait_st->exit_code = -1;
+	  	  thread_exit ();
 		}
-
+		
 		if (args[1] == 1) {
 			/* Write syscall with fd set to 1, so write to stdout */
-	    putbuf((void *) args[2], args[3]);
-	    f->eax = args[3];
+	        putbuf((void *) args[2], args[3]);
+	        f->eax = args[3];
 		} else {
 			validate_pointer(&f->eax, args[2], args[3]);
 
 			struct file *file = fd_to_file(args[1]);
-			if (file == NULL) {
+			struct inode* file_inode = file_get_inode(file);
+			if (file == NULL || inode_is_dir(file_inode)) {
 				f->eax = -1;
 			} else {
 				lock_acquire (&file_sys_lock);
