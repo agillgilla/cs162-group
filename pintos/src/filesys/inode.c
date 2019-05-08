@@ -824,3 +824,9 @@ inode_set_parent(struct inode *dest_inode, const struct inode *parent_inode)
 {
 	dest_inode->data.parent_node = parent_inode;
 }
+
+void
+inode_set_disknode_directory(struct inode *inode, bool is_dir)
+{
+	inode->data.directory = is_dir;
+}

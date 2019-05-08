@@ -31,7 +31,6 @@ filesys_init (bool format)
   struct inode *root_node = inode_open(ROOT_DIR_SECTOR);
   thread_current()->working_dir = dir_open(root_node);
 
-
   free_map_open ();
 }
 
@@ -53,11 +52,11 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
   block_sector_t inode_sector = 0;
   char base_name[NAME_MAX + 1];
   struct inode *dir_inode = NULL;
-  struct dir *dir = dir_open_root();//try_get_dir(name, base_name); //
+  struct dir *dir = try_get_dir(name, base_name); //dir_open_root();//
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, is_dir)
-                  && dir_add (dir, name, inode_sector));
+                  && dir_add (dir, base_name, inode_sector));
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
   dir_close (dir);
@@ -74,14 +73,22 @@ struct file *
 filesys_open (const char *name)
 {
   char file_name[NAME_MAX + 1];
-  struct dir *dir = dir_open_root();//try_get_dir(name, file_name) == NULL?  
+  struct dir *dir = dir_open_root();//try_get_dir(name, file_name);//
   struct inode *inode = NULL;
   
-  if (dir != NULL)
+
+  /*if (dir != NULL)
     dir_lookup(dir, name, &inode);
   dir_close (dir);
 
-  return file_open (inode);
+  return file_open (inode);*/
+  if (dir== NULL || !dir_lookup(dir, name, &inode)) {
+	  dir = try_get_dir(name, file_name);
+	  if (dir != NULL)
+		  dir_lookup(dir, name, &inode);
+  }
+  dir_close(dir);
+  return file_open(inode);
 }
 
 /* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the
@@ -131,11 +138,13 @@ filesys_chdir(const char *syscall_arg)
 }
 
 /* Attempt to find the directory where the file exists.
-   Return dir if it exists, else return NULL. */
+   Return dir if it exists, else return NULL.
+   Saves base filename in file_path or sets to "." if path is a directory. */
 struct dir *
 try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
 	if (strcmp(file_path, "\0") == 0)
 		return NULL;
+	update_thread_working_dir(); //Should not need this but somehow ending up with "false" working_dir.
 	
 	struct inode *cur_inode = rel_to_abs(file_path);
 	struct inode *next_inode = NULL;
@@ -143,18 +152,23 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
 	while (get_next_part(next_part, &file_path) > 0 && cur_inode != NULL)
 	{
 		struct dir *cur_dir = dir_open(cur_inode);
-		if (dir_lookup(cur_dir, next_part, &next_inode))
+		inode_close(next_inode);
+		if (dir_lookup(cur_dir, next_part, &next_inode)) {
 			dir_close(cur_dir);
-		if (next_inode != NULL && inode_is_dir(next_inode))
+		}
+		if (next_inode != NULL && inode_is_dir(next_inode)) {
 			cur_inode = next_inode;
+		}
+		else if (get_next_part(next_part, &file_path) != 0) {
+			return NULL;
+		}
 		else
 			break;
 	}
 
 	if (next_inode != NULL && inode_is_dir(next_inode))
 		strlcpy(next_part, ".", sizeof(char) * 2);
-	//get_base_file_name(inode *cur_inode, next_part[NAME_MAX + 1]);
-		
+
 	return dir_open(cur_inode);
 }
 
@@ -164,7 +178,7 @@ rel_to_abs(const char *file_path)
 {
 	if (file_path[0] == '/')
 		return dir_get_inode(dir_open_root());
-	return dir_get_inode(thread_current()->working_dir);
+	return dir_get_inode(dir_reopen(thread_current()->working_dir));
 }
 
 void

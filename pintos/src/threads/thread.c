@@ -38,6 +38,9 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+/* Helper function to verify the*/
+struct dir* update_thread_working_dir(void);
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame
   {
@@ -173,7 +176,6 @@ thread_create (const char *name, int priority,
                thread_func *function, void *aux)
 {
   struct thread *t;
-  struct thread *cur_t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
@@ -191,8 +193,7 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
 
   /* Set working directory to parent working directory. */
-  cur_t = thread_current();
-  t->working_dir = cur_t->working_dir;
+  t->working_dir = update_thread_working_dir();// cur_t->working_dir;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -604,3 +605,14 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+struct dir*
+update_thread_working_dir()
+{
+	struct thread *cur_t; 
+	cur_t = thread_current();
+	/* Error checking for filesystem startup. Somehow starting with a false directory. */
+	if (cur_t->working_dir != NULL && !dir_is_dir(cur_t->working_dir))
+		inode_set_disknode_directory(dir_get_inode(cur_t->working_dir), true);
+	return cur_t->working_dir;
+}

@@ -241,3 +241,10 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
     }
   return false;
 }
+
+/* Return true if directory's inode_disk.directory member is set to true. */
+bool 
+dir_is_dir(struct dir *dir)
+{
+	return inode_is_dir(dir_get_inode(dir));
+}
