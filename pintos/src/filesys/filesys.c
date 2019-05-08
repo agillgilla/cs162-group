@@ -29,7 +29,7 @@ filesys_init (bool format)
     do_format ();
 
   struct inode *root_node = inode_open(ROOT_DIR_SECTOR);
-  thread_current()->working_dir = root_node;
+  thread_current()->working_dir = dir_open(root_node);
 
 
   free_map_open ();
@@ -51,7 +51,9 @@ bool
 filesys_create (const char *name, off_t initial_size, bool is_dir)
 {
   block_sector_t inode_sector = 0;
-  struct dir *dir = dir_open_root ();
+  char base_name[NAME_MAX + 1];
+  struct inode *dir_inode = NULL;
+  struct dir *dir = dir_open_root();//try_get_dir(name, base_name); //
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, is_dir)
@@ -115,6 +117,16 @@ get_next_part(char part[NAME_MAX + 1], const char **srcp) {
 bool
 filesys_chdir(const char *syscall_arg)
 {
+	char base_name[NAME_MAX + 1];
+	struct dir *dir = try_get_dir(syscall_arg, base_name);
+	struct inode *dir_inode = NULL;
+	//dir_lookup(dir, base_name, &dir_inode);
+
+	if (dir_lookup(dir, base_name, &dir_inode)) {
+		dir_close(thread_current()->working_dir);
+		thread_current()->working_dir = dir_open(dir_inode);
+		return true;
+	}
 	return false;
 }
 
@@ -122,23 +134,27 @@ filesys_chdir(const char *syscall_arg)
    Return dir if it exists, else return NULL. */
 struct dir *
 try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
-	if (*file_path == '\0')
+	if (strcmp(file_path, "\0") == 0)
 		return NULL;
 	
-	//char next_part[NAME_MAX + 1];
 	struct inode *cur_inode = rel_to_abs(file_path);
+	struct inode *next_inode = NULL;
 
 	while (get_next_part(next_part, &file_path) > 0 && cur_inode != NULL)
 	{
 		struct dir *cur_dir = dir_open(cur_inode);
-		if (dir_lookup(cur_dir, next_part, &cur_inode))
+		if (dir_lookup(cur_dir, next_part, &next_inode))
 			dir_close(cur_dir);
+		if (next_inode != NULL && inode_is_dir(next_inode))
+			cur_inode = next_inode;
 		else
 			break;
 	}
 
-	if (inode_is_dir(cur_inode))
+	if (next_inode != NULL && inode_is_dir(next_inode))
 		strlcpy(next_part, ".", sizeof(char) * 2);
+	//get_base_file_name(inode *cur_inode, next_part[NAME_MAX + 1]);
+		
 	return dir_open(cur_inode);
 }
 
@@ -149,6 +165,13 @@ rel_to_abs(const char *file_path)
 	if (file_path[0] == '/')
 		return dir_get_inode(dir_open_root());
 	return dir_get_inode(thread_current()->working_dir);
+}
+
+void
+get_base_file_name(struct inode *cur_inode, char next_part[NAME_MAX + 1])
+{
+	
+
 }
 
 
