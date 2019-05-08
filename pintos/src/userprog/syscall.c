@@ -104,7 +104,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 				f->eax = inode_is_dir(inode);
 			}
 		}
-	}
+	} else if (args[0] == SYS_INUMBER) {
+    if (!((char *)args[1] == (char *)NULL)) {
+      struct file *file = fd_to_file(args[1]);
+      if (file != NULL) {
+        struct inode* inode = file_get_inode(file);
+        f->eax = inode_get_inumber(inode);
+      }
+    }
+  }
   /* File syscalls with file as input */
   if (args[0] == SYS_FILESIZE) {
   	struct file *file = fd_to_file(args[1]);
