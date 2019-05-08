@@ -11,6 +11,7 @@ void process_activate (void);
 struct file_entry {
 	int fd;                 /* File descriptor number for file entry */
 	struct file *file;      /* File struct pointer for file entry */
+	struct dir *dir;        /* Directory struct pointer for file_entry (NULL when not dir) */
 	struct list_elem elem;  /* List element for adding to a list */
 };
 
