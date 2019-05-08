@@ -20,7 +20,7 @@ bool valid_string(char *str);
 bool valid_pointer(void *pointer, size_t len);
 void validate_pointer(uint32_t *eax_reg, void *pointer, size_t len);
 void validate_string(uint32_t *eax_reg, char *str);
-int open_fd(struct file *file);
+int open_fd(struct file *);
 struct file* fd_to_file(int fd);
 
 
@@ -209,8 +209,23 @@ int open_fd(struct file *file) {
   struct thread *cur = thread_current ();
   /* Allocate new file_entry */
   struct file_entry *new_file_entry = malloc(sizeof(struct file_entry));
-  /* Initialize the file member of file_entry */
-  new_file_entry->file = file;
+  
+  if (inode_is_dir(file_get_inode(file))) {
+    /* File is a directory */
+
+    /* Initialize the dir member of file_entry */
+    new_file_entry->dir = dir_open(inode_reopen(file_get_inode(file)));
+    /* Initialize the file member of file_entry to NULL */
+    //new_file_entry->file = NULL;
+  } else {
+    /* File is a regular file */
+
+    /* Initialize the file member of file_entry */
+    new_file_entry->file = file;
+    /* Initialize the dir member of file_entry to NULL */
+    new_file_entry->dir = NULL;
+  }
+  
   /* Get the new fd number */
   int new_fd = cur->fd_count;
   /* Set the fd number on the file_entry */
