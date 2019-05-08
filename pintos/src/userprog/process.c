@@ -33,6 +33,7 @@ struct exec_info {
   struct semaphore load_sema;      /* Init to 0, down in parent calling exec, up in child after load */
   struct wait_status *wait_status; /* Wait status for child */
   bool success;                    /* Whether or not load was successful */
+  struct thread *parent;           /* Parent thread struct */
 };
 
 /* Starts a new thread running a user program loaded from
@@ -63,6 +64,7 @@ process_execute (const char *file_name)
 
   /* Init members of exec_info */
   exec_inf.file_name = fn_copy;
+  exec_inf.parent = thread_current();
   sema_init (&exec_inf.load_sema, 0);
 
   /* Create a new thread to execute FILE_NAME. */
@@ -166,6 +168,12 @@ start_process (void *exec_inf_)
 
     /* Set success flag */
     complete_success = complete_success && malloc_success;
+
+    if (exec_inf->parent == NULL || exec_inf->parent->working_dir == NULL) {
+      thread_current()->working_dir = dir_open_root();
+    } else {
+      thread_current()->working_dir = dir_reopen(exec_inf->parent->working_dir);
+    }
   }
   /* Set member success flag of exec_info */
   exec_inf->success = complete_success;
