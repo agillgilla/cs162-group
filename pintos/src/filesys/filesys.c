@@ -14,6 +14,8 @@ struct block *fs_device;
 static void do_format (void);
 
 static char *dirname(char *path);
+char *basename(char * path);
+static bool rel_to_abs(const char *file_path, struct inode **inode);
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -56,12 +58,10 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
 
   directory = dirname(name);
 
-  if (strcmp(directory, "") == 0) {
-    directory = "/";
-  }
-
-  //printf("Call to filesys_create with full name : %s and parsed directory %s\n", name, directory);
-
+  // USEFUL
+  //printf("Call to filesys_create with full name: %s and parsed directory: %s\n", name, directory);
+  
+  //print_dir_structure();
 
   block_sector_t inode_sector = 0;
   char base_name[NAME_MAX + 1];
@@ -87,6 +87,8 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
     //printf("Just failed on regular file with dir = %s \n", (dir == NULL)?"NULL":"not NULL");
   }
 
+  //print_dir_structure();
+
   return success;
 }
 
@@ -107,10 +109,6 @@ filesys_open (const char *name)
 
 
   char *directory = dirname(name);
-
-  if (strcmp(directory, "") == 0) {
-    directory = "/";
-  }
 
   //printf("Call to filesys_open with calculated dir: %s\n", directory);
   /*if (dir != NULL)
@@ -183,11 +181,13 @@ static char *dirname(char *path)
 
   int i;
 
+  // Switch . to / on relative? or call rel_to_abs first and correct by switching "" to "/"?
+
   if(path_copy == NULL || path_copy[0] == '\0')
-    return ".";
+    return "/";
   for(i = strlen(path_copy) - 1; i >= 0 && path_copy[i] == '/'; i--);
   if(i == -1)
-    return "/";
+    return path_copy;
   for(i--; i >= 0 && path_copy[i] != '/'; i--);
   if(i == -1)
     return ".";
@@ -197,6 +197,24 @@ static char *dirname(char *path)
     return "/";
   path_copy[i+1] = '\0';
   return path_copy;
+}
+
+/* basename */
+char *basename(char *path)
+{
+
+  char *path_copy = malloc(strlen(path) + 1);
+  strlcpy(path_copy, path, sizeof(char) * (strlen(path) + 1));
+
+  int i;
+
+  if(path_copy == NULL || path_copy[0] == '\0')
+    return "";
+  for(i = strlen(path_copy) - 1; i >= 0 && path_copy[i] == '/'; i--);
+  if(i == -1)
+    return "/";
+  for(path_copy[i+1] = '\0'; i >= 0 && path_copy[i] != '/'; i--);
+  return &path_copy[i+1];
 }
 
 /* Attempt to find the directory where the file exists.
@@ -213,48 +231,75 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
 		return NULL;
 	//update_thread_working_dir(); //Should not need this but somehow ending up with "false" working_dir.
 	
-	struct inode *cur_inode = rel_to_abs(file_path);
-	struct inode *next_inode = NULL;
+  char *directory = dirname(file_path);
 
-  int i = 0;
+  struct inode *cur_inode = NULL;
+  bool relative = rel_to_abs(file_path, &cur_inode);
+  struct inode *next_inode = NULL;
 
-	while (get_next_part(next_part, &file_path) > 0 && cur_inode != NULL)
-	{
-		struct dir *cur_dir = dir_open(cur_inode);
-		inode_close(next_inode);
-    //printf("Looking for directory with name %s on iteration %d...\n", next_part, i);
-		if (dir_lookup(cur_dir, next_part, &next_inode)) {
+  if (strcmp(directory, ".") == 0) {
 
-			dir_close(cur_dir);
+    strlcpy(next_part, file_path, sizeof(char) * (strlen(file_path) + 1));
+  } else {
+    
+    int i = 0;
 
-      if (next_inode != NULL && inode_is_dir(next_inode)) {
-        cur_inode = next_inode;
+    while (get_next_part(next_part, &directory) > 0 && cur_inode != NULL)
+    {
+      struct dir *cur_dir = dir_open(cur_inode);
+      /* Commenting out inode_close seemed to fix a lot of issues.  Maybe because the 
+         path is being passed into try_get_dir (instead of directory) so the while runs
+         for one too many iterations and closes the dir we need, then hits the break on
+         the else so uwe try to call dir_open on a closed inode? */
+      
+      //inode_close(next_inode);
+      
+      // USEFUL
+      //printf("Looking for directory with name %s on iteration %d...\n", next_part, i);
+      if (dir_lookup(cur_dir, next_part, &next_inode)) {
+        // USEFUL
+        //printf("Found directory with name %s on iteration %d!\n", next_part, i);
+        dir_close(cur_dir);
+
+        if (next_inode != NULL && inode_is_dir(next_inode)) {
+          cur_inode = next_inode;
+        }
       }
-		}
-		
-		else if (get_next_part(next_part, &file_path) != 0) {
-      //printf("Returning NULL, next_part is: %s\n", next_part);
-			return NULL;
-		}
-		else
-			break;
-    i++;
-	}
+      
+      else if (get_next_part(next_part, &directory) != 0) {
+        //printf("Returning NULL, next_part is: %s\n", next_part);
+        return NULL;
+      }
+      else
+        break;
+      i++;
+    }
 
-	if (next_inode != NULL && inode_is_dir(next_inode))
-		strlcpy(next_part, ".", sizeof(char) * 2);
+    /*
+    if (next_inode != NULL && inode_is_dir(next_inode))
+      strlcpy(next_part, ".", sizeof(char) * 2);
+    */
+
+  }
+
+  char *base_name = basename(file_path);
+
+  strlcpy(next_part, base_name, sizeof(char) * (strlen(base_name) + 1));
 
 	return dir_open(cur_inode);
 }
 
 /* Get the correct directory inode according to the given file_path. */
-struct inode *
-rel_to_abs(const char *file_path)
+
+bool rel_to_abs(const char *file_path, struct inode **inode)
 {
-	if (file_path[0] == '/')
-		return dir_get_inode(dir_open_root());
+	if (file_path[0] == '/') {
+		*inode = dir_get_inode(dir_open_root());
+    return false;
+  }
   //printf("Returning relative directory!\n");
-	return dir_get_inode(dir_reopen(thread_current()->working_dir));
+	*inode = dir_get_inode(dir_reopen(thread_current()->working_dir));
+  return true;
 }
 
 void
