@@ -199,6 +199,8 @@ inode_create (block_sector_t sector, off_t length, bool directory)
      one sector in size, and you should fix that. */
   ASSERT (sizeof *disk_inode == BLOCK_SECTOR_SIZE);
 
+  //printf("Call to inode_create at sector %zu \n", sector);
+
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
@@ -228,8 +230,16 @@ inode_create (block_sector_t sector, off_t length, bool directory)
 
   	  block_write(fs_device, sector, disk_inode);
 
+      //printf("Just called inode_create and wrote to disk\n");
+
       free (disk_inode);
     }
+
+  if (directory) {
+    //printf("Call to inode_create created directory returned success code %s \n", success?"true":"false");
+  }
+  
+
   return success;
 }
 
@@ -380,9 +390,14 @@ inode_extend(struct inode_disk *inode_d, off_t length)
 
   //printf("curr_num_blocks: %zd\n", curr_num_blocks);
   //printf("new_num_blocks: %zd\n", new_num_blocks);
-
-	if (new_num_blocks < curr_num_blocks) {
+  
+  //printf("First direct sector number: %zu\n", inode_d->direct_ptrs[0]);
+  //printf("Old length: %zu, New length: %zu\n", inode_d->length, length);
+	
+  if (new_num_blocks < curr_num_blocks) {
 		/* This function is only for extending (not shortening) inodes */
+
+    //printf("NEW BLOCKS LESS THAN CURR BLOCKS!\n");
 		return false;
 	} else if (new_num_blocks == curr_num_blocks) {
 		/* Nothing needs to be done */
@@ -551,7 +566,7 @@ inode_extend(struct inode_disk *inode_d, off_t length)
 	}
 
 	inode_d->length = length;
-
+  //printf("FINISHED SUCCESSFULLY\n");
 	return true;
 }
 
@@ -722,14 +737,17 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   struct inode_disk inode_d = inode->data;
 
   /* The new length is greater than current length, extend it */
-  if (offset + size - 1 > inode_d.length) {
+  //if (offset + size - 1 > inode_d.length) {
+  if (byte_to_sector(inode, offset + size - 1) == -1) {
     //printf("Extending inode of length %zu to length: %zu...\n", inode_d.length, offset + size);
     /* Extend the length of the inode */
     if (!inode_extend(&inode->data, offset + size)) {
+      //printf("Fail on inode_extend, returning 0\n");
       return 0;
     }
 
     inode->data.length = offset + size;
+    //printf("Just set inode length to %zu\n", offset + size);
 
     /* Write the inode_disk back to disk */
     block_write(fs_device, inode->sector, &inode->data);

@@ -21,6 +21,8 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
   };
 
+static void print_dir_recursive(struct dir *directory, int level);
+
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool
@@ -100,6 +102,7 @@ lookup (const struct dir *dir, const char *name,
 
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e)
+    //printf("Found %s while searching for %s\n", e.name, name);
     if (e.in_use && !strcmp (name, e.name))
       {
         if (ep != NULL)
@@ -176,6 +179,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.inode_sector = inode_sector;
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
+  //printf("Write to inode with success = %s\n", success?"true":"false");
+
   if (success) {
 	  struct inode *new_inode = inode_open(inode_sector);
 	  inode_set_parent(new_inode, dir_get_inode(dir));
@@ -247,4 +252,43 @@ bool
 dir_is_dir(struct dir *dir)
 {
 	return inode_is_dir(dir_get_inode(dir));
+}
+
+void
+print_dir_structure(void) {
+
+  printf("DIRECTORY STRUCTURE DUMP:\n");
+  printf("========================:\n");
+
+  struct dir *root = dir_open_root();
+
+  printf("/\n");
+  print_dir_recursive(root, 1);  
+}
+
+static void
+print_dir_recursive(struct dir *directory, int level) {
+  char name[NAME_MAX + 1];
+
+  while (dir_readdir(directory, name)) {
+    struct inode *curr_inode;
+    
+    if (!dir_lookup(directory, name, &curr_inode)) {
+      printf("Ghost entry: %s\n", name);
+    }
+    
+    int i;
+    for (i = 0; i < level; i++)
+      printf("|--->");
+
+    printf("|");
+
+    if (inode_is_dir(curr_inode)) {
+      printf("%s/\n", name);
+      print_dir_recursive(dir_open(curr_inode), level + 1);
+    } else {
+      printf("%s\n", name);
+    }
+  }
+
 }
