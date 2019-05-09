@@ -22,7 +22,7 @@ void validate_pointer(uint32_t *eax_reg, void *pointer, size_t len);
 void validate_string(uint32_t *eax_reg, char *str);
 int open_fd(struct file *);
 struct file* fd_to_file(int fd);
-
+struct dir* fd_to_dir(int fd);
 
 void
 syscall_init (void)
@@ -57,11 +57,18 @@ syscall_handler (struct intr_frame *f UNUSED)
     	thread_exit();
 		} else {
 				validate_string(&f->eax, (char *)args[1]);
+
+
 				
 				lock_acquire (&file_sys_lock);
 				if (args[0] == SYS_CREATE) {
-					/* New File. */
-					f->eax = filesys_create((char *)args[1], args[2], false);
+          /* New File. */
+          if (strlen((char *)args[1]) > NAME_MAX) {
+            /* Filename too long */
+            f->eax = 0;
+          } else {
+            f->eax = filesys_create((char *)args[1], args[2], false);
+          }
 				}
 				else { 
 					/* New Directory. */
@@ -143,10 +150,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	        lock_release (&file_sys_lock);
   	    }
   } else if (args[0] == SYS_WRITE) {
-		if (args[1] < 0 || args[1] > thread_current()->fd_count) {
+		if (args[1] <= 0 || args[1] > thread_current()->fd_count) {
 		  /* Invalid fd, error and exit process */
 		  thread_current()->wait_st->exit_code = -1;
-	  	  thread_exit ();
+	  	thread_exit ();
 		}
 		
 		if (args[1] == 1) {
@@ -195,8 +202,9 @@ syscall_handler (struct intr_frame *f UNUSED)
   }
   else if (args[0] == SYS_READDIR) {
 	  //TODO
-	  //struct file *file = fd_to_file(args[1]);
-	  //f->eax = dir_readdir((struct dir *)file, (char name[15])args[1]));
+	  struct dir *dir = fd_to_dir(args[1]);
+    //print_dir_structure();
+	  f->eax = dir_readdir(dir, args[1]);
   }
   else if (args[0] == SYS_CHDIR) {
 	  validate_string(&f->eax, args[1]);
@@ -259,6 +267,27 @@ struct file* fd_to_file(int fd) {
     return NULL;
 }
 
+struct dir* fd_to_dir(int fd) {
+  /* Get the current running thread */
+  struct thread *cur = thread_current ();
+  /* Get file_table from the running thread */
+  struct list f_table = cur->file_table;
+  /* Initialize the list entry point */
+  struct list_elem *entry;
+
+  /* Iterate through file_table to find the corresponding file entry */
+  for (entry = list_begin (&f_table); entry != list_end (&f_table);
+       entry = list_next (entry))
+    {
+      struct file_entry *f = list_entry (entry, struct file_entry, elem);
+      if (f->fd == fd) {
+        return f->dir;
+      }
+    }
+    /* If no corresponding file descriptor, return NULL */
+    return NULL;
+}
+
 bool valid_pointer(void *pointer, size_t len) {
 	/* Make sure that the pointer doesn't leak into kernel memory */
   return is_user_vaddr(pointer + len) && pagedir_get_page(thread_current()->pagedir, pointer + len) != NULL;
@@ -276,9 +305,8 @@ bool valid_string(char *str) {
   	return false;
   } else {
   	char *end_str = str + strlen(kernel_page_str) + 1;
-
   	if (!is_user_vaddr(end_str) || pagedir_get_page(thread_current()->pagedir, end_str) == NULL) {
-  		return false;
+      return false;
   	}
   }
 

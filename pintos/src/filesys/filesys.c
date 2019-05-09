@@ -107,6 +107,11 @@ filesys_open (const char *name)
   
   //printf("Call to filesys_open with name %s\n", name);
 
+  if (strcmp(name, "/") == 0) {
+    struct file *root_file = file_open(dir_get_inode(dir));
+    dir_close(dir);
+    return root_file;
+  }
 
   char *directory = dirname(name);
 
@@ -116,7 +121,7 @@ filesys_open (const char *name)
   dir_close (dir);
 
   return file_open (inode);*/
-  if (dir== NULL || !dir_lookup(dir, name, &inode)) {
+  if (dir== NULL || !dir_lookup(dir, basename(name), &inode)) {
 	  dir = try_get_dir(name, file_name);
 	  if (dir != NULL)
 		  dir_lookup(dir, file_name, &inode);
@@ -317,8 +322,14 @@ get_base_file_name(struct inode *cur_inode, char next_part[NAME_MAX + 1])
 bool
 filesys_remove (const char *name)
 {
-  struct dir *dir = dir_open_root ();
-  bool success = dir != NULL && dir_remove (dir, name);
+
+  char base_name[NAME_MAX + 1];
+  struct dir *dir = NULL;
+
+  dir = try_get_dir(name, base_name);
+
+
+  bool success = dir != NULL && dir_remove (dir, base_name);
   dir_close (dir);
 
   return success;
