@@ -37,9 +37,8 @@ cache_read_at(block_sector_t sector, void void *buffer, off_t size, off_t block_
 {
   *void cached;
   for (i=0; i < CACHE_BLOCKS; i++)
-
     /* read data into buffer */
-    if (cache_blocks[i]->valid && cache_blocks[i]->sector == sector)
+    if (cache_blocks[i]->valid && cache_blocks[i]->sector == sector) {
       cashed_blocks[i]-> lock_acquire(block_lock)
       memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
       cached_blocks[i]->recently_used = true;
@@ -48,6 +47,7 @@ cache_read_at(block_sector_t sector, void void *buffer, off_t size, off_t block_
       cashed = true;
       cache_hit ++;
       break;
+      }
 
   /* Run clock algorithm to find an entry */
   // need to run the clock algorithm on cache_blocks until we find an entry to evict,
@@ -64,7 +64,7 @@ cache_read_at(block_sector_t sector, void void *buffer, off_t size, off_t block_
         }
 
       if (clock_index == CACHE_BLOCKS) {
-        i = 0
+        clock_index = 0
       } else {
         clock_index ++;
       }
