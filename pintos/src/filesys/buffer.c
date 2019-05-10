@@ -8,6 +8,7 @@ struct cache_block *cache_blocks[CACHE_BLOCKS];   /* Array of cache_blocks */
 struct lock cache_lock;                           /* Lock for cache_block synchronization */
 unsigned clock_index;                             /* Current position of the clock hand for clock algorithm */
 
+
 struct cache_block {
     block_sector_t sector;    /* Sector on disk that this cache is for */
     void *data;               /* Raw data from sector in cache */
@@ -25,21 +26,20 @@ filesys_cache_init(void)
 
   for (i=0 ;i < CACHE_BLOCKS; i++)
     lock_init(cache_blocks[i] -> &block_lock)
-    lock_acquire(cache_blocks[i]-> &block_lock)
     cache_blocks[i] -> valid = false;
-    lock_release(cache_blocks[i]-> &block_lock)
+    cache_block[i] -> dirty = false;
 }
 
 void
 cache_read_at(block_sector_t sector, void void *buffer, off_t size, off_t block_ofs)
 {
-  // cache_block *cache = NULL;
-  // for (i=0; i < CACHE_BLOCKS; i++)
-  //   /* read data into buffer */
-  //   if (cache_blocks[i]->sector == sector)
-  //     memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
-  //     break;
-  // 
+  cache_block *cache = NULL;
+  for (i=0; i < CACHE_BLOCKS; i++)
+    /* read data into buffer */
+    if (cache_blocks[i]->sector == sector)
+      memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
+      break;
+
   // if (cache == NULL)
   //
 
