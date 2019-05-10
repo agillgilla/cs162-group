@@ -24,7 +24,7 @@ struct inode_disk {
   block_sector_t doubly_indirect_ptr;       /* Doubly indirect pointer */
 
   bool directory;                           /* True if inode is directory. */
-  struct inode *parent_node;			    /* Link to parent directory. */
+  block_sector_t parent_node;			    /* Link to parent directory. */
     
   off_t length;                             /* File size in bytes. */
   unsigned magic;                           /* Magic number. */
@@ -840,11 +840,21 @@ inode_length (const struct inode *inode)
 void
 inode_set_parent(struct inode *dest_inode, const struct inode *parent_inode) 
 {
-	dest_inode->data.parent_node = parent_inode;
+	dest_inode->data.parent_node = parent_inode->sector;
+
+	//block_write(fs_device, dest_inode->sector, &dest_inode->data);
 }
 
 void
 inode_set_disknode_directory(struct inode *inode, bool is_dir)
 {
 	inode->data.directory = is_dir;
+
+	//block_write(fs_device, inode->sector, &inode->data);
+}
+
+block_sector_t
+inode_get_parent(struct inode *inode) {
+	//block_read (fs_device, inode->sector, &inode->data);
+	return (inode->data).parent_node;
 }

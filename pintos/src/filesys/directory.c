@@ -260,12 +260,22 @@ void
 print_dir_structure(void) {
 
   printf("DIRECTORY STRUCTURE DUMP:\n");
-  printf("========================:\n");
+  printf("========================\n");
 
   struct dir *root = dir_open_root();
 
   printf("/\n");
   print_dir_recursive(root, 1);  
+}
+
+void
+print_dir_structure_from_dir(struct dir *dir) {
+
+  printf("CURR DIRECTORY STRUCTURE DUMP:\n");
+  printf("=============================\n");
+
+  printf("./\n");
+  print_dir_recursive(dir_reopen(dir), 1);  
 }
 
 static void
@@ -280,12 +290,13 @@ print_dir_recursive(struct dir *directory, int level) {
     }
     
     int i;
-    for (i = 0; i < level; i++)
-      printf("|--->");
+    for (i = 0; i < level - 1; i++)
+      printf("     ");
+    printf(" ⮡-->");
 
     printf("|");
 
-    if (inode_is_dir(curr_inode)) {
+    if (inode_is_dir(curr_inode) && !(strcmp(name, ".") == -0) && !(strcmp(name, "..") == 0)) {
       printf("%s/\n", name);
       print_dir_recursive(dir_open(curr_inode), level + 1);
     } else {

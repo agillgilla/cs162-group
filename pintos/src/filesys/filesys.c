@@ -14,7 +14,7 @@ struct block *fs_device;
 static void do_format (void);
 
 static char *dirname(char *path);
-char *basename(char * path);
+static char *basename(char *path);
 static bool rel_to_abs(const char *file_path, struct inode **inode);
 
 /* Initializes the file system module.
@@ -54,9 +54,7 @@ bool
 filesys_create (const char *name, off_t initial_size, bool is_dir)
 {
   
-  char *directory = NULL;
-
-  directory = dirname(name);
+  //char *directory = dirname(name);
 
   // USEFUL
   //printf("Call to filesys_create with full name: %s and parsed directory: %s\n", name, directory);
@@ -79,13 +77,25 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
                   && dir_add (dir, base_name, inode_sector));
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
-  dir_close (dir);
+  
 
   if (is_dir) {
+    /*
+    struct inode *new_dir_inode = NULL;
+    dir_lookup(dir, base_name, &new_dir_inode);
+    struct dir *new_dir = dir_open(new_dir_inode);
+
+    dir_add (new_dir, ".", inode_get_inumber(dir_get_inode(new_dir)));
+    dir_add (new_dir, "..", inode_get_inumber(dir_get_inode(dir)));
+
+    dir_close(new_dir);
+    */
     //printf("Just created directory with name %s and success code %s \n", name, success?"true":"false");
   } else {
     //printf("Just failed on regular file with dir = %s \n", (dir == NULL)?"NULL":"not NULL");
   }
+
+  dir_close (dir);
 
   //print_dir_structure();
 
@@ -111,9 +121,13 @@ filesys_open (const char *name)
     struct file *root_file = file_open(dir_get_inode(dir));
     dir_close(dir);
     return root_file;
+  } else if (strcmp(name, ".") == 0) {
+    struct file *working_dir = file_open(dir_get_inode(dir_reopen(thread_current()->working_dir)));
+    dir_close(dir);
+    return working_dir;
   }
 
-  char *directory = dirname(name);
+  //char *directory = dirname(name);
 
   //printf("Call to filesys_open with calculated dir: %s\n", directory);
   /*if (dir != NULL)
@@ -121,12 +135,17 @@ filesys_open (const char *name)
   dir_close (dir);
 
   return file_open (inode);*/
-  if (dir== NULL || !dir_lookup(dir, basename(name), &inode)) {
+  char *base_name = basename(name);
+
+  if (dir== NULL || !dir_lookup(dir, base_name, &inode)) {
 	  dir = try_get_dir(name, file_name);
 	  if (dir != NULL)
 		  dir_lookup(dir, file_name, &inode);
   }
   dir_close(dir);
+
+  free(base_name);
+
   return file_open(inode);
 }
 
@@ -164,6 +183,28 @@ bool
 filesys_chdir(const char *syscall_arg)
 {
   //printf("Call to chdir with arg %s\n", syscall_arg);
+
+  //print_dir_structure_from_dir(thread_current()->working_dir);
+
+  if (strcmp(syscall_arg, "..") == 0) {
+    //printf("BEFORE:\n");
+    //print_dir_structure_from_dir(thread_current()->working_dir);
+
+    struct inode *working_dir_inode = dir_get_inode(thread_current()->working_dir);
+    
+    thread_current()->working_dir = dir_open(
+                                      inode_open(
+                                        inode_get_parent(
+                                          dir_get_inode(
+                                            thread_current()->working_dir))));
+
+    dir_close(dir_reopen(thread_current()->working_dir));
+
+    //printf("AFTER:\n");
+    //print_dir_structure_from_dir(thread_current()->working_dir);
+    return true;
+  }
+
 	char base_name[NAME_MAX + 1];
 	struct dir *dir = try_get_dir(syscall_arg, base_name);
 	struct inode *dir_inode = NULL;
@@ -180,7 +221,6 @@ filesys_chdir(const char *syscall_arg)
 /* dirname */
 static char *dirname(char *path)
 {
-
   char *path_copy = malloc(strlen(path) + 1);
   strlcpy(path_copy, path, sizeof(char) * (strlen(path) + 1));
 
@@ -197,15 +237,16 @@ static char *dirname(char *path)
   if(i == -1)
     return ".";
   path_copy[i] = '\0';
-  for(i--; i >= 0 && path[i] == '/'; i--);
+  for(i--; i >= 0 && path_copy[i] == '/'; i--);
   if(i == -1)
     return "/";
   path_copy[i+1] = '\0';
+  
   return path_copy;
 }
 
 /* basename */
-char *basename(char *path)
+static char *basename(char *path)
 {
 
   char *path_copy = malloc(strlen(path) + 1);
@@ -219,7 +260,13 @@ char *basename(char *path)
   if(i == -1)
     return "/";
   for(path_copy[i+1] = '\0'; i >= 0 && path_copy[i] != '/'; i--);
-  return &path_copy[i+1];
+
+  char *base_name = malloc(strlen(&path_copy[i+1]) + 1);
+  strlcpy(base_name, &path_copy[i+1], sizeof(char) * (strlen(&path_copy[i+1]) + 1));
+
+  free(path_copy);
+
+  return base_name;
 }
 
 /* Attempt to find the directory where the file exists.
@@ -238,12 +285,14 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
 	
   char *directory = dirname(file_path);
 
+  //printf("Call to try_get_dir with file_path: %s and calculated directory: %s\n", file_path, directory);
+
   struct inode *cur_inode = NULL;
   bool relative = rel_to_abs(file_path, &cur_inode);
   struct inode *next_inode = NULL;
 
   if (strcmp(directory, ".") == 0) {
-
+    //printf("Relative directory, file_path: %s\n", file_path);
     strlcpy(next_part, file_path, sizeof(char) * (strlen(file_path) + 1));
   } else {
     
@@ -273,6 +322,7 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
       
       else if (get_next_part(next_part, &directory) != 0) {
         //printf("Returning NULL, next_part is: %s\n", next_part);
+        //free(directory);
         return NULL;
       }
       else
@@ -287,9 +337,13 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
 
   }
 
-  char *base_name = basename(file_path);
+  char *base_name = basename(file_path);  
 
   strlcpy(next_part, base_name, sizeof(char) * (strlen(base_name) + 1));
+
+  // Probably should free these strings somehow, but not here (it causes errors)
+  //free(directory);
+  free(base_name);
 
 	return dir_open(cur_inode);
 }
@@ -323,8 +377,12 @@ bool
 filesys_remove (const char *name)
 {
 
+  //print_dir_structure_from_dir(thread_current()->working_dir);
+
   char base_name[NAME_MAX + 1];
   struct dir *dir = NULL;
+
+  //printf("Call to filesys_remove with name: %s\n", name);
 
   dir = try_get_dir(name, base_name);
 

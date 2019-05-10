@@ -21,5 +21,6 @@ void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
 
 bool inode_is_dir (struct inode *);
-struct inode *inode_get_parent(const struct inode *);
+block_sector_t inode_get_parent(struct inode *);
+
 #endif /* filesys/inode.h */
