@@ -119,6 +119,10 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
 struct file *
 filesys_open (const char *name)
 {
+  if (strcmp(name, "") == 0) {
+    return NULL;
+  }
+
   char file_name[NAME_MAX + 1];
   struct dir *dir = dir_open_root();//try_get_dir(name, file_name);//
   struct inode *inode = NULL;
@@ -133,12 +137,13 @@ filesys_open (const char *name)
   } else if (strcmp(name, ".") == 0) {
     if (inode_removed(dir_get_inode(thread_current()->working_dir))) {
       /* Disallow open(..) if working directory inode was removed */
-      return false;
+      return NULL;
     }
     struct file *working_dir = file_open(dir_get_inode(dir_reopen(thread_current()->working_dir)));
     dir_close(dir);
     return working_dir;
   }
+
 
   //char *directory = dirname(name);
 
@@ -150,10 +155,15 @@ filesys_open (const char *name)
   return file_open (inode);*/
   char *base_name = basename(name);
 
-  if (dir== NULL || !dir_lookup(dir, base_name, &inode)) {
+  bool exists = false;
+
+  if (dir == NULL || !dir_lookup(dir, base_name, &inode)) {
 	  dir = try_get_dir(name, file_name);
-	  if (dir != NULL)
-		  dir_lookup(dir, file_name, &inode);
+	  if (dir != NULL) {
+		  exists = dir_lookup(dir, file_name, &inode);
+    } else {
+      return NULL;
+    }
   }
   dir_close(dir);
 
@@ -308,6 +318,10 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
   bool relative = rel_to_abs(file_path, &cur_inode);
   struct inode *next_inode = NULL;
 
+  if (cur_inode == NULL) {
+    return NULL;
+  }
+
   if (strcmp(directory, ".") == 0) {
     //printf("Relative directory, file_path: %s\n", file_path);
     strlcpy(next_part, file_path, sizeof(char) * (strlen(file_path) + 1));
@@ -374,7 +388,11 @@ bool rel_to_abs(const char *file_path, struct inode **inode)
     return false;
   }
   //printf("Returning relative directory!\n");
-	*inode = dir_get_inode(dir_reopen(thread_current()->working_dir));
+  if (thread_current()->working_dir != NULL) {
+	  *inode = dir_get_inode(dir_reopen(thread_current()->working_dir));
+  } else {
+    *inode = NULL;
+  }
   return true;
 }
 

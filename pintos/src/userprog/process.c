@@ -169,10 +169,12 @@ start_process (void *exec_inf_)
     /* Set success flag */
     complete_success = complete_success && malloc_success;
 
-    if (exec_inf->parent == NULL || exec_inf->parent->working_dir == NULL) {
-      thread_current()->working_dir = dir_open_root();
-    } else {
-      thread_current()->working_dir = dir_reopen(exec_inf->parent->working_dir);
+    if (complete_success) {
+      if (exec_inf->parent == NULL || exec_inf->parent->working_dir == NULL) {
+        thread_current()->working_dir = dir_open_root();
+      } else {
+        thread_current()->working_dir = dir_reopen(exec_inf->parent->working_dir);
+      }
     }
   }
   /* Set member success flag of exec_info */
