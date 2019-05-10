@@ -57,8 +57,6 @@ syscall_handler (struct intr_frame *f UNUSED)
     	thread_exit();
 		} else {
 				validate_string(&f->eax, (char *)args[1]);
-
-
 				
 				lock_acquire (&file_sys_lock);
 				if (args[0] == SYS_CREATE) {
@@ -204,7 +202,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  //TODO
 	  struct dir *dir = fd_to_dir(args[1]);
     //print_dir_structure();
-	  f->eax = dir_readdir(dir, args[1]);
+	  f->eax = dir_readdir(dir, (char *) args[2]);
   }
   else if (args[0] == SYS_CHDIR) {
 	  validate_string(&f->eax, args[1]);
