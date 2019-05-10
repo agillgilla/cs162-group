@@ -112,9 +112,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 	} else if (args[0] == SYS_INUMBER) {
     if (!((char *)args[1] == (char *)NULL)) {
       struct file *file = fd_to_file(args[1]);
+      struct dir *dir = fd_to_dir(args[1]);
       if (file != NULL) {
         struct inode* inode = file_get_inode(file);
         f->eax = inode_get_inumber(inode);
+      } else if (dir != NULL) {
+        struct inode* inode = dir_get_inode(dir);
+        if (inode != NULL) {
+          f->eax = inode_get_inumber(inode);
+        }
       }
     }
   }
@@ -159,11 +165,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 	        putbuf((void *) args[2], args[3]);
 	        f->eax = args[3];
 		} else {
-			validate_pointer(&f->eax, args[2], args[3]);
 
+			validate_pointer(&f->eax, args[2], args[3]);
 			struct file *file = fd_to_file(args[1]);
-			struct inode* file_inode = file_get_inode(file);
-			if (file == NULL || inode_is_dir(file_inode)) {
+			
+      if (file == NULL || inode_is_dir(file_get_inode(file))) {
 				f->eax = -1;
 			} else {
 				lock_acquire (&file_sys_lock);
@@ -222,7 +228,7 @@ int open_fd(struct file *file) {
     /* Initialize the dir member of file_entry */
     new_file_entry->dir = dir_open(inode_reopen(file_get_inode(file)));
     /* Initialize the file member of file_entry to NULL */
-    //new_file_entry->file = NULL;
+    new_file_entry->file = NULL;
   } else {
     /* File is a regular file */
 

@@ -836,6 +836,12 @@ inode_length (const struct inode *inode)
   return inode->data.length;
 }
 
+/* Returns if an inode has been removed */
+bool
+inode_removed (struct inode *inode) {
+	return inode->removed;
+}
+
 /* Set dest_inode's data disk_node parent directory to parent_inode. */
 void
 inode_set_parent(struct inode *dest_inode, const struct inode *parent_inode) 

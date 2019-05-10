@@ -20,6 +20,7 @@ void inode_deny_write (struct inode *);
 void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
 
+bool inode_removed (struct inode *);
 bool inode_is_dir (struct inode *);
 block_sector_t inode_get_parent(struct inode *);
 

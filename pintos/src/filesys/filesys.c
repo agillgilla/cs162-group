@@ -66,6 +66,14 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
   struct inode *dir_inode = NULL;
   struct dir *dir = NULL;
 
+  struct inode *cur_inode = NULL;
+  bool relative = rel_to_abs(name, &cur_inode);
+  if (relative) {
+    if (inode_removed(dir_get_inode(thread_current()->working_dir))) {
+      /* Disallow create() on relative directories if working directory inode was removed */
+      return false;
+    }
+  }
 
   dir = try_get_dir(name, base_name); //dir_open_root();//
   
@@ -122,6 +130,10 @@ filesys_open (const char *name)
     dir_close(dir);
     return root_file;
   } else if (strcmp(name, ".") == 0) {
+    if (inode_removed(dir_get_inode(thread_current()->working_dir))) {
+      /* Disallow open(..) if working directory inode was removed */
+      return false;
+    }
     struct file *working_dir = file_open(dir_get_inode(dir_reopen(thread_current()->working_dir)));
     dir_close(dir);
     return working_dir;
@@ -211,8 +223,12 @@ filesys_chdir(const char *syscall_arg)
 	//dir_lookup(dir, base_name, &dir_inode);
 
 	if (dir_lookup(dir, base_name, &dir_inode)) {
+    //printf("BEFORE:\n");
+    //print_dir_structure_from_dir(thread_current()->working_dir);
 		dir_close(thread_current()->working_dir);
 		thread_current()->working_dir = dir_open(dir_inode);
+    //printf("AFTER:\n");
+    //print_dir_structure_from_dir(thread_current()->working_dir);
 		return true;
 	}
 	return false;
@@ -376,7 +392,8 @@ get_base_file_name(struct inode *cur_inode, char next_part[NAME_MAX + 1])
 bool
 filesys_remove (const char *name)
 {
-
+  //printf("BEFORE:\n");
+  //print_dir_structure();
   //print_dir_structure_from_dir(thread_current()->working_dir);
 
   char base_name[NAME_MAX + 1];
@@ -389,6 +406,9 @@ filesys_remove (const char *name)
 
   bool success = dir != NULL && dir_remove (dir, base_name);
   dir_close (dir);
+
+  //printf("AFTER:\n");
+  //print_dir_structure();
 
   return success;
 }
