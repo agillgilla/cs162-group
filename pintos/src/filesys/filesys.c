@@ -16,6 +16,7 @@ static void do_format (void);
 static char *dirname(char *path);
 static char *basename(char *path);
 static bool rel_to_abs(const char *file_path, struct inode **inode);
+static bool is_parent_dir(struct inode *child, struct inode *parent);
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -195,11 +196,11 @@ bool
 filesys_chdir(const char *syscall_arg)
 {
   //printf("Call to chdir with arg %s\n", syscall_arg);
-
+  //print_dir_structure();
   //print_dir_structure_from_dir(thread_current()->working_dir);
 
   if (strcmp(syscall_arg, "..") == 0) {
-    //printf("BEFORE:\n");
+    //printf("BEFORE:\n");f
     //print_dir_structure_from_dir(thread_current()->working_dir);
 
     struct inode *working_dir_inode = dir_get_inode(thread_current()->working_dir);
@@ -377,11 +378,30 @@ bool rel_to_abs(const char *file_path, struct inode **inode)
   return true;
 }
 
-void
-get_base_file_name(struct inode *cur_inode, char next_part[NAME_MAX + 1])
+/* Checks if PARENT is a parent directory of CHILD.  Returns true if
+it is, false otherwise */
+static bool is_parent_dir(struct inode *child, struct inode *parent)
 {
-	
+  if (parent == NULL || child == NULL) {
+    return false;
+  }
 
+  struct inode *curr_inode = inode_open(inode_get_parent(child));
+
+  return inode_get_inumber(curr_inode) == inode_get_inumber(parent);
+  
+  /*
+  while (curr_inode != NULL) {
+    if (inode_get_inumber(curr_inode) == inode_get_inumber(parent)) {
+      return true;
+    }
+    
+    
+    curr_inode = inode_open(inode_get_parent(curr_inode));
+  }
+  
+  return false;
+  */
 }
 
 
@@ -396,6 +416,11 @@ filesys_remove (const char *name)
   //print_dir_structure();
   //print_dir_structure_from_dir(thread_current()->working_dir);
 
+  if (strcmp(name, "/") == 0) {
+    /* You can't remove root directory */
+    return false;
+  }
+
   char base_name[NAME_MAX + 1];
   struct dir *dir = NULL;
 
@@ -403,6 +428,17 @@ filesys_remove (const char *name)
 
   dir = try_get_dir(name, base_name);
 
+
+  struct inode *dir_inode = NULL;
+  dir_lookup(dir, base_name, &dir_inode);
+
+  if (inode_is_dir(dir_inode) && 
+    !(inode_get_inumber(dir_inode) == inode_get_inumber(dir_get_inode(thread_current()->working_dir))) &&
+    is_parent_dir(dir_get_inode(thread_current()->working_dir), dir_inode)) {
+    /* Disallow removal of directory that is parent of working directory 
+    (but allow removal of current working directory) */
+    return false;
+  }
 
   bool success = dir != NULL && dir_remove (dir, base_name);
   dir_close (dir);
