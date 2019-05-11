@@ -39,10 +39,10 @@ cache_read_at(block_sector_t sector, void void *buffer, off_t size, off_t block_
   for (i=0; i < CACHE_BLOCKS; i++)
     /* read data into buffer */
     if (cache_blocks[i]->valid && cache_blocks[i]->sector == sector) {
-      cashed_blocks[i]-> lock_acquire(block_lock)
+      cashed_blocks[i]-> lock_acquire(cashed_blocks[clock_index]->&block_lock)
       memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
       cached_blocks[i]->recently_used = true;
-      cashed_blocks[i]-> lock_release(block_lock);
+      cashed_blocks[i]-> lock_release(cashed_blocks[clock_index]->&block_lock);
 
       cashed = true;
       cache_hit ++;
@@ -50,16 +50,14 @@ cache_read_at(block_sector_t sector, void void *buffer, off_t size, off_t block_
       }
 
   /* Run clock algorithm to find an entry */
-  // need to run the clock algorithm on cache_blocks until we find an entry to evict,
-  // then evict it and load the new entry into its place
     while(!cashed) {
       if (cache_blocks[clock_index]->recently_used) {
           cache_blocks[clock_index]->recently_used = false;
         } else {
-          cashed_blocks[clock_index]-> lock_acquire(block_lock)
+          cashed_blocks[clock_index]-> lock_acquire(cashed_blocks[clock_index]->&block_lock)
           memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
           cached_blocks[clock_index]->recently_used = true;
-          cashed_blocks[clock_index]-> lock_release(block_lock);
+          cashed_blocks[clock_index]-> lock_release(cashed_blocks[clock_index]->&block_lock);
           cashed = true;
         }
 
@@ -79,7 +77,11 @@ cache_write_at(block_sector_t sector, const void *buffer, off_t size, off_t bloc
 }
 
 void
-cache_flush()
+cache_flush(void)
 {
-
+  // for (i = 0; i < CACHE_BLOCKS; i++) {
+  //   if (cache_blocks[i]->valid && cache_blocks[i]->dirty) {
+  //     block_write(fs_device, cache_blocks[i]->sector, )
+  //   }
+  // }
 }
