@@ -73,7 +73,67 @@ cache_read_at(block_sector_t sector, void void *buffer, off_t size, off_t block_
 void
 cache_write_at(block_sector_t sector, const void *buffer, off_t size, off_t block_ofs)
 {
+  //boolean indicating whether the sector we are trying to access is already cached
+  bool cached = false;
 
+  //Check if the sector is already in the cache
+  //keep track of first invalid bit if it exists
+  int invalidIndex = -1;
+  for (int i = 0; i < CACHE_BLOCKS; i++) {
+    //If valid bit is false, and it is the first one we see, keep track of the index so we can quickly pull from disk later
+    if (cache_blocks[i]->valid == false && invalidIndex == -1) {
+      invalidIndex = i;
+    }
+
+    //If valid bit is true, and the sector matches, then it means we have a cache hit
+    if (cached_blocks[i]->valid == true && cache_blocks[i]->sector == sector) {
+      cache_lock->lock_acquire(cached_blocks[i]->&block_lock);
+      memcpy(cache_blocks[i]->data, buffer, BLOCK_SECTOR_SIZE);
+      cached_blocks[i]->recently_used = true;
+      cached_blocks[i]->dirty = true;
+      cache_lock->lock_release(cached_blocks[i]->&block_lock);
+      cached = true;
+      cache_hit++;
+      return;
+    }
+  }
+
+  //If there is invalid bit and cached is false, simply write to it, and set valid to true
+  if (invalidIndex != -1 && cached == false) {
+    cache_lock->lock_acquire(cached_blocks[invalidIndex]->&block_lock);
+    memcpy(cache_blocks[invalidIndex]->data, buffer, BLOCK_SECTOR_SIZE);
+    cached_blocks[invalidIndex]->recently_used = true;
+    cached_blocks[invalidIndex]->dirty = true;
+    cached_blocks[invalidIndex]->valid = true;
+    cache_lock->lock_release(cached_blocks[invalidIndex]->&block_lock);
+    cached = true;
+    cache_miss++;
+    return;
+  }
+
+  //Else, if the cache was still not successful but no invalid blocks, then we need clock to replace
+  while(cached == false) {
+    //If recently used, don't evict
+    if (cache_blocks[clock_index]->recently_used == true) {
+      cache_blocks[clock_index]->recently_used = false;
+      clock_index = (clock_index + 1) % BLOCK_SECTOR_SIZE;
+    //if not recently used, evict
+    } else {
+      cache_lock->lock_acquire(cached_blocks[invalidIndex]->&block_lock);
+      //if evicted block is dirty, write it to disk
+      if (cache_blocks[clock_index]->dirty == true) {
+        //write to block
+      }
+      //write changes to cache
+      memcpy(cache_blocks[invalidIndex]->data, buffer, BLOCK_SECTOR_SIZE);
+      cached_blocks[invalidIndex]->recently_used = true;
+      cached_blocks[invalidIndex]->dirty = true;
+      cached_blocks[invalidIndex]->valid = true;
+      cache_lock->lock_release(cached_blocks[invalidIndex]->&block_lock);
+      cached = true;
+    }
+    cache_miss++;
+  }
 }
 
 void
