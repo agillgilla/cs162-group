@@ -66,7 +66,7 @@ cache_get_block(void)
   /* Loop until we find a block to return, in which case
   we will just break via return */
   while (1) {
-    if (cache_blocks[clock_index].valid) {
+    if (!cache_blocks[clock_index].valid) {
       /* This cache block isn't valid, so we can just return it */
       return &cache_blocks[clock_index];
     }

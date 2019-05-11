@@ -34,7 +34,6 @@ static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
   uint32_t* args = ((uint32_t*) f->esp);
-  //printf("System call number: %d\n", args[0]);
 
   validate_pointer(&f->eax, args, sizeof(uint32_t));
 
@@ -162,8 +161,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 		
 		if (args[1] == 1) {
 			/* Write syscall with fd set to 1, so write to stdout */
-	        putbuf((void *) args[2], args[3]);
-	        f->eax = args[3];
+      putbuf((void *) args[2], args[3]);
+      f->eax = args[3];
 		} else {
 
 			validate_pointer(&f->eax, args[2], args[3]);
@@ -201,13 +200,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     f->eax = file_tell(file);
 
   } else if (args[0] == SYS_CLOSE) {
-    //struct file *file = fd_to_file(args[1]);
-    //file_close(file);
+    /* Not even implemented... wtf? */
   }
   else if (args[0] == SYS_READDIR) {
-	  //TODO
 	  struct dir *dir = fd_to_dir(args[1]);
-    //print_dir_structure();
 	  f->eax = dir_readdir(dir, (char *) args[2]);
   }
   else if (args[0] == SYS_CHDIR) {

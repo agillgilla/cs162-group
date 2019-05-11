@@ -47,6 +47,8 @@ filesys_init (bool format)
 void
 filesys_done (void)
 {
+  /* Flush the buffer cache */
+  cache_flush();
   free_map_close ();
 }
 
@@ -57,13 +59,6 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size, bool is_dir)
 {
-  
-  //char *directory = dirname(name);
-
-  // USEFUL
-  //printf("Call to filesys_create with full name: %s and parsed directory: %s\n", name, directory);
-  
-  //print_dir_structure();
 
   block_sector_t inode_sector = 0;
   char base_name[NAME_MAX + 1];
@@ -79,37 +74,16 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
     }
   }
 
-  dir = try_get_dir(name, base_name); //dir_open_root();//
+  dir = try_get_dir(name, base_name);
   
-
-
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, is_dir)
                   && dir_add (dir, base_name, inode_sector));
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
-  
-
-  if (is_dir) {
-    /*
-    struct inode *new_dir_inode = NULL;
-    dir_lookup(dir, base_name, &new_dir_inode);
-    struct dir *new_dir = dir_open(new_dir_inode);
-
-    dir_add (new_dir, ".", inode_get_inumber(dir_get_inode(new_dir)));
-    dir_add (new_dir, "..", inode_get_inumber(dir_get_inode(dir)));
-
-    dir_close(new_dir);
-    */
-    //printf("Just created directory with name %s and success code %s \n", name, success?"true":"false");
-  } else {
-    //printf("Just failed on regular file with dir = %s \n", (dir == NULL)?"NULL":"not NULL");
-  }
 
   dir_close (dir);
-
-  //print_dir_structure();
 
   return success;
 }
@@ -127,11 +101,8 @@ filesys_open (const char *name)
   }
 
   char file_name[NAME_MAX + 1];
-  struct dir *dir = dir_open_root();//try_get_dir(name, file_name);//
+  struct dir *dir = dir_open_root();
   struct inode *inode = NULL;
-
-  
-  //printf("Call to filesys_open with name %s\n", name);
 
   if (strcmp(name, "/") == 0) {
     struct file *root_file = file_open(dir_get_inode(dir));
@@ -147,15 +118,6 @@ filesys_open (const char *name)
     return working_dir;
   }
 
-
-  //char *directory = dirname(name);
-
-  //printf("Call to filesys_open with calculated dir: %s\n", directory);
-  /*if (dir != NULL)
-    dir_lookup(dir, name, &inode);
-  dir_close (dir);
-
-  return file_open (inode);*/
   char *base_name = basename(name);
 
   bool exists = false;
@@ -208,13 +170,8 @@ get_next_part(char part[NAME_MAX + 1], const char **srcp) {
 bool
 filesys_chdir(const char *syscall_arg)
 {
-  //printf("Call to chdir with arg %s\n", syscall_arg);
-  //print_dir_structure();
-  //print_dir_structure_from_dir(thread_current()->working_dir);
 
   if (strcmp(syscall_arg, "..") == 0) {
-    //printf("BEFORE:\n");f
-    //print_dir_structure_from_dir(thread_current()->working_dir);
 
     struct inode *working_dir_inode = dir_get_inode(thread_current()->working_dir);
     
@@ -226,23 +183,16 @@ filesys_chdir(const char *syscall_arg)
 
     dir_close(dir_reopen(thread_current()->working_dir));
 
-    //printf("AFTER:\n");
-    //print_dir_structure_from_dir(thread_current()->working_dir);
     return true;
   }
 
 	char base_name[NAME_MAX + 1];
 	struct dir *dir = try_get_dir(syscall_arg, base_name);
 	struct inode *dir_inode = NULL;
-	//dir_lookup(dir, base_name, &dir_inode);
 
 	if (dir_lookup(dir, base_name, &dir_inode)) {
-    //printf("BEFORE:\n");
-    //print_dir_structure_from_dir(thread_current()->working_dir);
 		dir_close(thread_current()->working_dir);
 		thread_current()->working_dir = dir_open(dir_inode);
-    //printf("AFTER:\n");
-    //print_dir_structure_from_dir(thread_current()->working_dir);
 		return true;
 	}
 	return false;
@@ -255,8 +205,6 @@ static char *dirname(char *path)
   strlcpy(path_copy, path, sizeof(char) * (strlen(path) + 1));
 
   int i;
-
-  // Switch . to / on relative? or call rel_to_abs first and correct by switching "" to "/"?
 
   if(path_copy == NULL || path_copy[0] == '\0')
     return "/";
@@ -305,17 +253,10 @@ static char *basename(char *path)
 struct dir *
 try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
 
-  //printf("Call to try_get_dir with file_path: %s\n", file_path);
-
-  //print_dir_structure();
-
 	if (strcmp(file_path, "\0") == 0)
 		return NULL;
-	//update_thread_working_dir(); //Should not need this but somehow ending up with "false" working_dir.
 	
   char *directory = dirname(file_path);
-
-  //printf("Call to try_get_dir with file_path: %s and calculated directory: %s\n", file_path, directory);
 
   struct inode *cur_inode = NULL;
   bool relative = rel_to_abs(file_path, &cur_inode);
@@ -326,7 +267,6 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
   }
 
   if (strcmp(directory, ".") == 0) {
-    //printf("Relative directory, file_path: %s\n", file_path);
     strlcpy(next_part, file_path, sizeof(char) * (strlen(file_path) + 1));
   } else {
     
@@ -340,13 +280,7 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
          for one too many iterations and closes the dir we need, then hits the break on
          the else so uwe try to call dir_open on a closed inode? */
       
-      //inode_close(next_inode);
-      
-      // USEFUL
-      //printf("Looking for directory with name %s on iteration %d...\n", next_part, i);
       if (dir_lookup(cur_dir, next_part, &next_inode)) {
-        // USEFUL
-        //printf("Found directory with name %s on iteration %d!\n", next_part, i);
         dir_close(cur_dir);
 
         if (next_inode != NULL && inode_is_dir(next_inode)) {
@@ -355,27 +289,19 @@ try_get_dir(const char *file_path, char next_part[NAME_MAX + 1]) {
       }
       
       else if (get_next_part(next_part, &directory) != 0) {
-        //printf("Returning NULL, next_part is: %s\n", next_part);
-        //free(directory);
         return NULL;
       }
       else
         break;
       i++;
     }
-
-    /*
-    if (next_inode != NULL && inode_is_dir(next_inode))
-      strlcpy(next_part, ".", sizeof(char) * 2);
-    */
-
   }
 
   char *base_name = basename(file_path);  
 
   strlcpy(next_part, base_name, sizeof(char) * (strlen(base_name) + 1));
 
-  // Probably should free these strings somehow, but not here (it causes errors)
+  /* Probably should free these strings somehow, but not here (it causes errors) */
   //free(directory);
   free(base_name);
 
@@ -390,7 +316,7 @@ bool rel_to_abs(const char *file_path, struct inode **inode)
 		*inode = dir_get_inode(dir_open_root());
     return false;
   }
-  //printf("Returning relative directory!\n");
+
   if (thread_current()->working_dir != NULL) {
 	  *inode = dir_get_inode(dir_reopen(thread_current()->working_dir));
   } else {
@@ -410,19 +336,6 @@ static bool is_parent_dir(struct inode *child, struct inode *parent)
   struct inode *curr_inode = inode_open(inode_get_parent(child));
 
   return inode_get_inumber(curr_inode) == inode_get_inumber(parent);
-  
-  /*
-  while (curr_inode != NULL) {
-    if (inode_get_inumber(curr_inode) == inode_get_inumber(parent)) {
-      return true;
-    }
-    
-    
-    curr_inode = inode_open(inode_get_parent(curr_inode));
-  }
-  
-  return false;
-  */
 }
 
 
@@ -433,10 +346,6 @@ static bool is_parent_dir(struct inode *child, struct inode *parent)
 bool
 filesys_remove (const char *name)
 {
-  //printf("BEFORE:\n");
-  //print_dir_structure();
-  //print_dir_structure_from_dir(thread_current()->working_dir);
-
   if (strcmp(name, "/") == 0) {
     /* You can't remove root directory */
     return false;
@@ -444,8 +353,6 @@ filesys_remove (const char *name)
 
   char base_name[NAME_MAX + 1];
   struct dir *dir = NULL;
-
-  //printf("Call to filesys_remove with name: %s\n", name);
 
   dir = try_get_dir(name, base_name);
 
@@ -463,9 +370,6 @@ filesys_remove (const char *name)
 
   bool success = dir != NULL && dir_remove (dir, base_name);
   dir_close (dir);
-
-  //printf("AFTER:\n");
-  //print_dir_structure();
 
   return success;
 }

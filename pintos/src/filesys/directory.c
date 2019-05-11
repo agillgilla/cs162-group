@@ -102,7 +102,6 @@ lookup (const struct dir *dir, const char *name,
 
   for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
        ofs += sizeof e)
-    //printf("Found %s while searching for %s\n", e.name, name);
     if (e.in_use && !strcmp (name, e.name))
       {
         if (ep != NULL)
@@ -153,8 +152,6 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
-  //printf("Calling dir_add with base name: %s\n", name);
-
   /* Check NAME for validity. */
   if (*name == '\0' || strlen (name) > NAME_MAX)
     return false;
@@ -180,8 +177,6 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
-
-  //printf("Write to inode with success = %s\n", success?"true":"false");
 
   if (success) {
 	  struct inode *new_inode = inode_open(inode_sector);
@@ -303,5 +298,4 @@ print_dir_recursive(struct dir *directory, int level) {
       printf("%s\n", name);
     }
   }
-
 }
