@@ -5,26 +5,51 @@ Final Report for Project 3: File System
 
 ### Task 1 (Buffer Cache):
 
+The buffer cache exhibited the least amount of changes from our original design compared to the other two tasks.  One mistake we made in the design doc was storing the main array of `cache_block`s as an array of pointers to `cache_block`s.  This would have worked, however we would have had to `malloc` all the `cache_block`s on initialization and `free` them all on closing.  Instead we just declared the static array of `cache_block`s so we didn't have to deal with this.
 
+We also had to change our function declarations for `cache_read_at(...)` and `cahce_write_at(...)` because we didn't need to specify a offset and size, we just read/write the whole 512 byte block from/to disk.
+
+Everything else is essentially the same, we just added some helper functions, `cache_check(...)` which loops through the cache to see if an entry already exists, and `cache_get_block(...)` which returns a block to use in the cache either by returning an invalid one or evicting according to the clock algorithm.
 
 ### Task 2 (Extensible Files):
 
+The main idea for our implementation of extensible files using `inode`s remained the same, however there were some subtle changes that we had to deal with by using helper functions.  Our main `inode_extend(...)` function (which has the most complex logic in `inode.c`) didn't change much, but we did have to account for many scenarios such as dynamically allocating indirect pointers in the doubly indirect block and many edge cases.
 
+We also created a helper function, `inode_alloc(...)`, which pre-allocates all direct block pointers, the indirect block, and the doubly indirect block.  The last helper function, `inode_dealloc(...)`, is used to completely deallocate an `inode`'s disk space, and does so by freeing blocks at all levels.  This helper function is only called by `inode_remove(...)`.
 
 ### Task 3 (Subdirectories):
 
+There were many edge cases and implementation subtleties that we overlooked while writing the design doc for subdirectories.  The first was that we needed to add a `dir *` object to our `file_entry` struct that was stored in the per-process `file_table`.  This is so we could have file descriptors open to directories, too.
 
+We also had to create special functions for handling file I/O operations using `.` and `..`.  This could have been handled by adding those entries to the directory when calling `mkdir(...)`, however, that would cause us to have to change `dir_lookup(...)` or `readdir(...)` to skip those special entries.  This caused lots of errors, so instead we created special cases and helper functions to handle these.
+
+Some crucial helper functions we created were:
+
+* `dirname(...)` and `basename(...)`:  These two functions were actually inspired by functions in DeforaOS, a POSIX open source OS, and return the directory or base file name given a full file path.  For example, given `/home/a/b/c`, `dirname(...)` would return `/home/a/b` and `basename(...)` would return `c`.  These functions were extremely useful for breaking apart file paths.
+
+* `try_to_get_dir(...)`: This was a crucial function that, given a full file path, iterates through using `dir_lookup` to get the directory fo the file that is requested, handling both relative and absolute file paths.
+
+* `rel_to_abs(...)`: This function simply determined if a path was relative or absolute by checking if it started with a `/`, and returned either the root directory or the current working directory accordingly.
+
+* `is_parent_dir(...)`: This function checks if an `inode` is the parent of another `inode` to make sure that disallowed directory deletions don't happen.
+
+* `print_dir_structure(...)`: This function didn't add functionality to the project, but was **extremely** useful for debugging, as it essentially dumped a Linux style `tree` function output of the current directory structure of the filesystem.
+
+We also took into account Jason's recommendation of storing the current working directory as an `inode` pointer to the directory, and added a field in `struct inode` to have a pointer to the parent of a given `inode`.
 
 ## Reflection
 
 ### Task 1
 
+Emma started task 1 and Alex fixed some of it, but Arjun ended up rewriting most of it.
 
 ### Task 2
 
+Arjun did task 2.
 
 ### Task 3
 
+Nick started the base of task 2 and Arjun finished it.
 
 ### Tests
 
@@ -75,7 +100,7 @@ Final Report for Project 3: File System
 
 * We didn't leave commented-out code in the final submission.
 
-* We created functions when possible rather than copying and pasting.  This includes helper functions in `cache.c` for cache searches and evictions/flushes and `filesys.c` for getting parts of file paths and checking various properties of `dir`s`.  We also created helper functions in `inode.c` for extending inodes and gettsers/setters of struct members for opaque types
+* We created functions when possible rather than copying and pasting.  This includes helper functions in `cache.c` for cache searches and evictions/flushes and `filesys.c` for getting parts of file paths and checking various properties of `dir`s.  We also created helper functions in `inode.c` for extending inodes and gettsers/setters of struct members for opaque types
 
 * We didn't have to create any of our own lists for this project.
 
