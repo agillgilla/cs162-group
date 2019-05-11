@@ -2,7 +2,7 @@
 #include "threads/synch.h"
 
 /* Buffer cache with a maximum capacity of 64 disk blocks */
-#define CACHE_BLOCKS 64;
+#define CACHE_BLOCKS 64
 
 struct cache_block *cache_blocks[CACHE_BLOCKS];   /* Array of cache_blocks */
 struct lock cache_lock;                           /* Lock for cache_block synchronization */
@@ -25,40 +25,42 @@ filesys_cache_init(void)
   clock_index = 0;
   cache_miss = 0;
   cache_hit = 0;
-
+  int i;
   for (i=0 ;i < CACHE_BLOCKS; i++)
-    lock_init(cache_blocks[i] -> &block_lock)
+    lock_init(&cache_blocks[i] -> block_lock);
     cache_blocks[i] -> valid = false;
-    cache_block[i] -> dirty = false;
+    cache_blocks[i] -> dirty = false;
 }
 
 void
-cache_read_at(block_sector_t sector, void void *buffer, off_t size, off_t block_ofs)
+cache_read_at(block_sector_t sector, void *buffer, off_t size, off_t block_ofs)
 {
-  *void cached;
-  for (i=0; i < CACHE_BLOCKS; i++)
+  bool cached = false;
+  int i;
+  for (i=0; i < CACHE_BLOCKS; i++) {
     /* read data into buffer */
     if (cache_blocks[i]->valid && cache_blocks[i]->sector == sector) {
-      cashed_blocks[i]-> lock_acquire(cashed_blocks[clock_index]->&block_lock)
+      lock_acquire(&cache_blocks[clock_index]->block_lock);
       memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
-      cached_blocks[i]->recently_used = true;
-      cashed_blocks[i]-> lock_release(cashed_blocks[clock_index]->&block_lock);
+      cache_blocks[i]->recently_used = true;
+      lock_release(&cache_blocks[clock_index]->block_lock);
 
-      cashed = true;
+      cached = true;
       cache_hit ++;
       break;
       }
+    }
 
   /* Run clock algorithm to find an entry */
-    while(!cashed) {
+    while(!cached) {
       if (cache_blocks[clock_index]->recently_used) {
           cache_blocks[clock_index]->recently_used = false;
         } else {
-          cashed_blocks[clock_index]-> lock_acquire(cashed_blocks[clock_index]->&block_lock)
+          lock_acquire(&cache_blocks[clock_index]->block_lock);
           memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
-          cached_blocks[clock_index]->recently_used = true;
-          cashed_blocks[clock_index]-> lock_release(cashed_blocks[clock_index]->&block_lock);
-          cashed = true;
+          cache_blocks[clock_index]->recently_used = true;
+          lock_release(&cache_blocks[clock_index]->block_lock);
+          cached = true;
         }
 
       if (clock_index == CACHE_BLOCKS) {
@@ -141,7 +143,7 @@ cache_flush(void)
 {
   // for (i = 0; i < CACHE_BLOCKS; i++) {
   //   if (cache_blocks[i]->valid && cache_blocks[i]->dirty) {
-  //     block_write(fs_device, cache_blocks[i]->sector, )
+  //     block_write(fs_device, cache_blocks[i]->sector, cache_blocks[i]->data)
   //   }
   // }
 }
