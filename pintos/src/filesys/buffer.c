@@ -6,19 +6,14 @@
 /* Buffer cache with a maximum capacity of 64 disk blocks */
 #define CACHE_BLOCKS 64
 
-struct cache_block *cache_blocks[CACHE_BLOCKS];   /* Array of cache_blocks */
+struct cache_block cache_blocks[CACHE_BLOCKS];    /* Array of cache_blocks */
 struct lock cache_lock;                           /* Lock for cache_block synchronization */
 unsigned clock_index;                             /* Current position of the clock hand for clock algorithm */
+size_t cache_miss;                                /* Number of cache misses */
+size_t cache_hit;                                 /* Number of cache hits */
 
-
-struct cache_block {
-    block_sector_t sector;    /* Sector on disk that this cache is for */
-    void *data;               /* Raw data from sector in cache */
-    struct lock block_lock;   /* Lock for synchronization */
-    bool valid;               /* Valid bit (set false on init, always true after) */
-    bool dirty;               /* Dirty bit */
-    bool recently_used;       /* Flag for clock algorithm (evict if false) */
-};
+static struct cache_block *cache_get_block(void);
+static struct cache_block *cache_check(block_sector_t sector);
 
 void
 filesys_cache_init(void)
@@ -29,195 +24,149 @@ filesys_cache_init(void)
   cache_hit = 0;
 
   int i;
-  for (i=0 ;i < CACHE_BLOCKS; i++) {
-    lock_init(&cache_blocks[i] -> block_lock);
-    cache_blocks[i] -> valid = false;
-    cache_blocks[i] -> dirty = false;
+  for (i = 0; i < CACHE_BLOCKS; i++) {
+    lock_init(&cache_blocks[i].block_lock);
+    cache_blocks[i].valid = false;
+    cache_blocks[i].dirty = false;
+  }
+}
+
+/* Checks if block with sector number SECTOR
+   is in the cache.  Returns a pointer to the cache
+   block if it is and NULL otherwise. 
+
+   Precondition: Must be holding the global cache lock. */
+static struct cache_block *
+cache_check(block_sector_t sector)
+{
+  int i;
+  for (i = 0; i < CACHE_BLOCKS; i++) {
+    /* We only care if the entry is valid */
+    if (cache_blocks[i].valid) {
+      /* Check if the sector number is the same as the one we are looking for */
+      if (cache_blocks[i].sector == sector) {
+        /* Cache hit.  Increment counter and return block pointer */
+        cache_hit++;
+        return &cache_blocks[i];
+      }
+    }
+  }
+  /* We didn't find the entry.
+  Cache miss, increment counter and return null. */
+  cache_miss++;
+  return NULL;
+}
+
+/* Gets a block to use from the cache.  If not full, just returns
+   an invalid entry.  If it is full, then it evicts using clock
+   algorithm and returns the evicted block. */
+static struct cache_block *
+cache_get_block(void)
+{
+  /* Loop until we find a block to return, in which case
+  we will just break via return */
+  while (1) {
+    if (cache_blocks[clock_index].valid) {
+      /* This cache block isn't valid, so we can just return it */
+      return &cache_blocks[clock_index];
+    }
+
+    if (cache_blocks[clock_index].recently_used) {
+      /* Don't evict if the block was recently used */
+      cache_blocks[clock_index].recently_used = false;
+    } else {
+      if (cache_blocks[clock_index].dirty) {
+        /* This cache block is dirty, write it back to disk */
+        block_write(fs_device, cache_blocks[clock_index].sector, cache_blocks[clock_index].data);
+        cache_blocks[clock_index].dirty = false;
+      }
+      /* Invalidate the entry so we know we can use it */
+      cache_blocks[clock_index].valid = false;
+      
+      return &cache_blocks[clock_index];
+    }
+
+    /* Move the clock hand and reset to beginning if it gets too big */
+    clock_index++;
+    if (clock_index == CACHE_BLOCKS) {
+      clock_index = 0;
+    }
   }
 }
 
 void
-cache_read_at(block_sector_t sector, void *buffer, off_t size, off_t block_ofs)
+cache_read_at(block_sector_t sector, void *buffer)
 {
-  //boolean indicating whether the sector we are trying to access is already cached
-  bool cached = false;
+  /* Acquire the main cache lock */
+  lock_acquire(&cache_lock);
+  
+  /* Check if the block is in the cache and retrieve it */
+  struct cache_block *block = cache_check(sector);
 
-  //Check if the sector is already in the cache
-  //keep track of first invalid bit if it exists
-  int invalidIndex = -1;
-  int i;
-  for (i = 0; i < CACHE_BLOCKS; i++) {
-    cache_lock->lock_acquire(cached_blocks[i]->&block_lock);
-    //If valid bit is false, and it is the first one we see, keep track of the index so we can quickly pull from disk later
-    if (cache_blocks[i]->valid == false && invalidIndex == -1) {
-      invalidIndex = i;
-    }
-
-    //If valid bit is true, and the sector matches, then it means we have a cache hit
-    if (cached_blocks[i]->valid == true && cache_blocks[i]->sector == sector) {
-      memcpy(buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
-      cached_blocks[i]->recently_used = true;
-      cached = true;
-      cache_hit++;
-
-    }
-    cache_lock->lock_release(cached_blocks[i]->&block_lock);
-
+  if (block == NULL) {
+    /* The block wasn't in the cache, get a new one and set it up */
+    block = cache_get_block();
+    block->sector = sector;
+    block->valid = true;
+    block->dirty = false;
+    block_read(fs_device, sector, block->data);
+    block->recently_used = true;
+    memcpy(buffer, block->data, BLOCK_SECTOR_SIZE);
+  } else {
+    /* The block was in the cache, copy into buffer and update recently_used */
+    block->recently_used = true;
+    memcpy(buffer, block->data, BLOCK_SECTOR_SIZE);
   }
 
-  //If there is invalid bit and cached is false, read from disk to it, and set valid to true
-  if (invalidIndex != -1 && cached == false) {
-    cache_lock->lock_acquire(cached_blocks[invalidIndex]->&block_lock);
-    block_read(fs_device, sector, cache_blocks[i]->data);
-    memcpy(buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
-    cached_blocks[invalidIndex]->recently_used = true;
-    cached_blocks[invalidIndex]->valid = true;
-    cached_blocks[invalidIndex]->sector = sector;
-    cache_lock->lock_release(cached_blocks[invalidIndex]->&block_lock);
-    cached = true;
-    cache_miss++;
-  }
-
-  //Else, if the cache was still not successful but no invalid blocks, then we need clock to replace
-  while(cached == false) {
-    cache_lock->lock_acquire(cached_blocks[clock_index]->&block_lock);
-    //If recently used, don't evict
-    if (cache_blocks[clock_index]->recently_used == true) {
-      cache_blocks[clock_index]->recently_used = false;
-      clock_index = (clock_index + 1) % BLOCK_SECTOR_SIZE;
-    //if not recently used, evict
-    } else {
-      //if evicted block is dirty, write it to disk
-      if (cache_blocks[clock_index]->dirty == true) {
-        block_write(fs_device, cache_blocks[clock_index]->sector, cache_blocks[clock_index]->data);
-      }
-      //write changes to cache
-      block_read(fs_device, sector, cache_blocks[i]->data);
-      memcpy(buffer, cache_blocks[clock_index]->data, BLOCK_SECTOR_SIZE);
-      cached_blocks[clock_index]->recently_used = true;
-      cached_blocks[clock_index]->dirty = false;
-      cached_blocks[clock_index]->valid = true;
-      cached_blocks[clock_index]->sector = sector;
-      cached = true;
-    }
-    cache_lock->lock_release(cached_blocks[clock_index]->&block_lock);
-    cache_miss++;
-  }
-  // bool cached;
-  // int i;
-  // for (i=0; i < CACHE_BLOCKS; i++)
-  //   /* read data into buffer */
-  //   if (cache_blocks[i]->valid && cache_blocks[i]->sector == sector) {
-  //     lock_acquire(&cache_blocks[clock_index]->block_lock);
-  //     memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
-  //     cache_blocks[i]->recently_used = true;
-  //     lock_release(&cache_blocks[clock_index]->block_lock);
-  //
-  //     cached = true;
-  //     cache_hit ++;
-  //     break;
-  //     }
-  //
-  // /* Run clock algorithm to find an entry */
-  //   while(cached == false) {
-  //     if (cache_blocks[clock_index]->recently_used) {
-  //         cache_blocks[clock_index]->recently_used = false;
-  //       } else {
-  //         lock_acquire(&cache_blocks[clock_index]->block_lock);
-  //         memcpy (buffer, cache_blocks[i]->data, BLOCK_SECTOR_SIZE);
-  //         cache_blocks[clock_index]->recently_used = true;
-  //         lock_release(&cache_blocks[clock_index]->block_lock);
-  //         cached = true;
-  //       }
-  //
-  //     if (clock_index == CACHE_BLOCKS) {
-  //       clock_index = 0
-  //     } else {
-  //       clock_index ++;
-  //     }
-  //     cache_miss ++;
-  //   }
+  /* Release the main cache lock */
+  lock_release(&cache_lock);
 }
 
 void
-cache_write_at(block_sector_t sector, const void *buffer, off_t size, off_t block_ofs)
+cache_write_at(block_sector_t sector, const void *buffer)
 {
-  //boolean indicating whether the sector we are trying to access is already cached
-  bool cached = false;
 
-  //Check if the sector is already in the cache
-  //keep track of first invalid bit if it exists
-  int invalidIndex = -1;
-  int i;
-  for (i = 0; i < CACHE_BLOCKS; i++) {
-    cache_lock->lock_acquire(cached_blocks[i]->&block_lock);
-    //If valid bit is false, and it is the first one we see, keep track of the index so we can quickly pull from disk later
-    if (cache_blocks[i]->valid == false && invalidIndex == -1) {
-      invalidIndex = i;
-    }
+  /* Acquire the main cache lock */
+  lock_acquire(&cache_lock);
+  
+  /* Check if the block is in the cache and retrieve it */
+  struct cache_block *block = cache_check(sector);
 
-    //If valid bit is true, and the sector matches, then it means we have a cache hit
-    if (cached_blocks[i]->valid == true && cache_blocks[i]->sector == sector) {
-      memcpy(cache_blocks[i]->data, buffer, BLOCK_SECTOR_SIZE);
-      cached_blocks[i]->recently_used = true;
-      cached_blocks[i]->dirty = true;
-      cached = true;
-      cache_hit++;
-
-    }
-    cache_lock->lock_release(cached_blocks[i]->&block_lock);
-
+  if (block == NULL) {
+    /* The block wasn't in the cache, get a new one and set it up */
+    block = cache_get_block();
+    block->sector = sector;
+    block->valid = true;
+    block->dirty = true;
+    block->recently_used = true;
+    memcpy(block->data, buffer, BLOCK_SECTOR_SIZE);
+  } else {
+    /* The block was in the cache, copy into buffer and update recently_used */
+    block->dirty = true;
+    block->recently_used = true;
+    memcpy(block->data, buffer, BLOCK_SECTOR_SIZE);
   }
 
-  //If there is invalid bit and cached is false, simply write to it, and set valid to true
-  if (invalidIndex != -1 && cached == false) {
-    cache_lock->lock_acquire(cached_blocks[invalidIndex]->&block_lock);
-    memcpy(cache_blocks[invalidIndex]->data, buffer, BLOCK_SECTOR_SIZE);
-    cached_blocks[invalidIndex]->recently_used = true;
-    cached_blocks[invalidIndex]->dirty = true;
-    cached_blocks[invalidIndex]->valid = true;
-    cached_blocks[invalidIndex]->sector = sector;
-    cache_lock->lock_release(cached_blocks[invalidIndex]->&block_lock);
-    cached = true;
-    cache_miss++;
-  }
-
-  //Else, if the cache was still not successful but no invalid blocks, then we need clock to replace
-  while(cached == false) {
-    cache_lock->lock_acquire(cached_blocks[clock_index]->&block_lock);
-    //If recently used, don't evict
-    if (cache_blocks[clock_index]->recently_used == true) {
-      cache_blocks[clock_index]->recently_used = false;
-      clock_index = (clock_index + 1) % BLOCK_SECTOR_SIZE;
-    //if not recently used, evict
-    } else {
-      //if evicted block is dirty, write it to disk
-      if (cache_blocks[clock_index]->dirty == true) {
-        block_write(fs_device, cache_blocks[clock_index]->sector, cache_blocks[clock_index]->data);
-      }
-      //write changes to cache
-      memcpy(cache_blocks[clock_index]->data, buffer, BLOCK_SECTOR_SIZE);
-      cached_blocks[clock_index]->recently_used = true;
-      cached_blocks[clock_index]->dirty = true;
-      cached_blocks[clock_index]->valid = true;
-      cached_blocks[clock_index]->sector = sector;
-      cached = true;
-    }
-    cache_lock->lock_release(cached_blocks[clock_index]->&block_lock);
-    cache_miss++;
-  }
+  /* Release the main cache lock */
+  lock_release(&cache_lock);
 }
 
 void
 cache_flush(void)
 {
+  /* Acquire the main cache lock */
+  lock_acquire(&cache_lock);
+  
   int i;
   for (i = 0; i < CACHE_BLOCKS; i++) {
-    lock_acquire(&cache_blocks[i]->block_lock);
-    if (cache_blocks[i]->valid && cache_blocks[i]->dirty) {
-      block_write(fs_device, cache_blocks[i]->sector, cache_blocks[i]->data);
-      cache_blocks[i]->dirty = false;
+    lock_acquire(&cache_blocks[i].block_lock);
+    if (cache_blocks[i].valid && cache_blocks[i].dirty) {
+      block_write(fs_device, cache_blocks[i].sector, cache_blocks[i].data);
+      cache_blocks[i].dirty = false;
     }
-    lock_release(&cache_blocks[i]->block_lock);
+    lock_release(&cache_blocks[i].block_lock);
   }
+
+  /* Release the main cache lock */
+  lock_release(&cache_lock);
 }

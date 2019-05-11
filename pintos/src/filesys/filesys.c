@@ -30,6 +30,9 @@ filesys_init (bool format)
   inode_init ();
   free_map_init ();
 
+  /* Initialize the buffer cache */
+  filesys_cache_init();
+
   if (format)
     do_format ();
 
