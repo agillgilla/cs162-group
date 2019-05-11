@@ -19,5 +19,8 @@ void filesys_cache_init(void);
 void cache_read_at(block_sector_t sector, void *buffer);
 void cache_write_at(block_sector_t sector, const void *buffer);
 void cache_flush(void);
+void cache_reset(void);
+int get_cache_hit(void);
+int get_cache_miss(void);
 
 #endif  /* filesys/buffer.h */

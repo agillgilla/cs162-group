@@ -1,7 +1,9 @@
+#include <string.h>
 #include "filesys/buffer.h"
 #include "threads/synch.h"
 #include "filesys/filesys.h"
 #include "devices/block.h"
+#include "threads/malloc.h"
 
 /* Buffer cache with a maximum capacity of 64 disk blocks */
 #define CACHE_BLOCKS 64
@@ -33,7 +35,7 @@ filesys_cache_init(void)
 
 /* Checks if block with sector number SECTOR
    is in the cache.  Returns a pointer to the cache
-   block if it is and NULL otherwise. 
+   block if it is and NULL otherwise.
 
    Precondition: Must be holding the global cache lock. */
 static struct cache_block *
@@ -82,7 +84,7 @@ cache_get_block(void)
       }
       /* Invalidate the entry so we know we can use it */
       cache_blocks[clock_index].valid = false;
-      
+
       return &cache_blocks[clock_index];
     }
 
@@ -99,7 +101,7 @@ cache_read_at(block_sector_t sector, void *buffer)
 {
   /* Acquire the main cache lock */
   lock_acquire(&cache_lock);
-  
+
   /* Check if the block is in the cache and retrieve it */
   struct cache_block *block = cache_check(sector);
 
@@ -128,7 +130,7 @@ cache_write_at(block_sector_t sector, const void *buffer)
 
   /* Acquire the main cache lock */
   lock_acquire(&cache_lock);
-  
+
   /* Check if the block is in the cache and retrieve it */
   struct cache_block *block = cache_check(sector);
 
@@ -156,7 +158,7 @@ cache_flush(void)
 {
   /* Acquire the main cache lock */
   lock_acquire(&cache_lock);
-  
+
   int i;
   for (i = 0; i < CACHE_BLOCKS; i++) {
     lock_acquire(&cache_blocks[i].block_lock);
@@ -169,4 +171,35 @@ cache_flush(void)
 
   /* Release the main cache lock */
   lock_release(&cache_lock);
+}
+
+/* Functions below are for testing purpose */
+
+void
+cache_reset(void)
+{
+  cache_flush();
+
+  /* Acquire the main cache lock */
+  lock_acquire(&cache_lock);
+  clock_index = 0;
+  cache_miss = 0;
+  cache_hit = 0;
+
+  int i;
+  for (i = 0; i < CACHE_BLOCKS; i++) {
+    cache_blocks[i].valid = false;
+  }
+  /* Release the main cache lock */
+  lock_release(&cache_lock);
+}
+
+int
+get_cache_hit(void) {
+  return cache_hit;
+}
+
+int
+get_cache_miss(void) {
+  return cache_miss;
 }
