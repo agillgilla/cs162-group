@@ -20,6 +20,11 @@ enum
     SYS_CLOSE,                  /* Close a file. */
     SYS_PRACTICE,               /* Returns arg incremented by 1 */
 
+    /* Syscalls for buffer cache */
+    SYS_CACHE_RESET,            /* Resets buffer cache */
+    SYS_GET_CACHE_HIT,              /* Returns current cache hits */
+    SYS_GET_CACHE_MISS,             /* Returns current cache misses */
+
     /* Project 3 and optionally project 4. */
     SYS_MMAP,                   /* Map a file into memory. */
     SYS_MUNMAP,                 /* Remove a memory mapping. */
@@ -30,6 +35,7 @@ enum
     SYS_READDIR,                /* Reads a directory entry. */
     SYS_ISDIR,                  /* Tests if a fd represents a directory. */
     SYS_INUMBER                 /* Returns the inode number for a fd. */
+
   };
 
 #endif /* lib/syscall-nr.h */

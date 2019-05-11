@@ -34,6 +34,9 @@ void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
 int practice (int i);
+void cache_reset (void);
+int get_cache_hit (void);
+int get_cache_miss (void);
 
 /* Project 3 and optionally project 4. */
 mapid_t mmap (int fd, void *addr);

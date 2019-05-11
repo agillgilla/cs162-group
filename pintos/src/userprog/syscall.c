@@ -11,6 +11,7 @@
 #include "filesys/file.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "filesys/buffer.h"
 #include "threads/malloc.h"
 #include <string.h>
 
@@ -37,6 +38,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   validate_pointer(&f->eax, args, sizeof(uint32_t));
 
+
   if (args[0] == SYS_PRACTICE) {
     f->eax = args[1] + 1;
   } else if (args[0] == SYS_HALT) {
@@ -56,7 +58,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     	thread_exit();
 		} else {
 				validate_string(&f->eax, (char *)args[1]);
-				
+
 				lock_acquire (&file_sys_lock);
 				if (args[0] == SYS_CREATE) {
           /* New File. */
@@ -67,7 +69,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             f->eax = filesys_create((char *)args[1], args[2], false);
           }
 				}
-				else { 
+				else {
 					/* New Directory. */
 					if (!valid_pointer(&args[1], sizeof(uint32_t))) {
 						thread_current()->wait_st->exit_code = -1;
@@ -88,7 +90,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 			f->eax = -1;
 		} else {
 			validate_string(&f->eax, (char *)args[1]);
-			
+
 			lock_acquire (&file_sys_lock);
 			struct file *file = filesys_open((char *) args[1]);
 			lock_release (&file_sys_lock);
@@ -98,7 +100,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 			else {
 				f->eax = open_fd(file);
 			}
-			
+
 		}
 	} else if (args[0] == SYS_ISDIR) {
 		if (!((char *)args[1] == (char *)NULL)) {
@@ -122,6 +124,14 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       }
     }
+  }
+
+  if (args[0] == SYS_CACHE_RESET) {
+    cache_reset();
+  } else if (args[0] == SYS_GET_CACHE_HIT) {
+    get_cache_hit();
+  } else if (args[0] == SYS_GET_CACHE_MISS) {
+    get_cache_miss();
   }
   /* File syscalls with file as input */
   if (args[0] == SYS_FILESIZE) {
@@ -158,7 +168,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 		  thread_current()->wait_st->exit_code = -1;
 	  	thread_exit ();
 		}
-		
+
 		if (args[1] == 1) {
 			/* Write syscall with fd set to 1, so write to stdout */
       putbuf((void *) args[2], args[3]);
@@ -167,7 +177,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
 			validate_pointer(&f->eax, args[2], args[3]);
 			struct file *file = fd_to_file(args[1]);
-			
+
       if (file == NULL || inode_is_dir(file_get_inode(file))) {
 				f->eax = -1;
 			} else {
@@ -194,7 +204,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   	lock_acquire (&file_sys_lock);
   	file_seek(file, (off_t) args[2]);
   	lock_release (&file_sys_lock);
-    
+
   } else if (args[0] == SYS_TELL) {
     struct file *file = fd_to_file(args[1]);
     f->eax = file_tell(file);
@@ -217,7 +227,7 @@ int open_fd(struct file *file) {
   struct thread *cur = thread_current ();
   /* Allocate new file_entry */
   struct file_entry *new_file_entry = malloc(sizeof(struct file_entry));
-  
+
   if (inode_is_dir(file_get_inode(file))) {
     /* File is a directory */
 
@@ -233,7 +243,7 @@ int open_fd(struct file *file) {
     /* Initialize the dir member of file_entry to NULL */
     new_file_entry->dir = NULL;
   }
-  
+
   /* Get the new fd number */
   int new_fd = cur->fd_count;
   /* Set the fd number on the file_entry */

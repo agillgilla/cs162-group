@@ -188,3 +188,21 @@ inumber (int fd)
 {
   return syscall1 (SYS_INUMBER, fd);
 }
+
+void
+cache_reset(void)
+{
+  syscall0(SYS_CACHE_RESET);
+}
+
+int
+get_cache_hit(void)
+{
+  return syscall0(SYS_GET_CACHE_HIT);
+}
+
+int
+get_cache_miss(void)
+{
+  return syscall0(SYS_GET_CACHE_MISS);
+}
