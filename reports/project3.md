@@ -60,7 +60,15 @@ Nick started the base of task 2 and Arjun finished it.
 
 **Description:** 
 
+Test cache's effectiveness by measuring cache hit rate. 
+First, read from a file and measure cache hit rate for a cold cache. Then read the file again sequentially to measure if the cache hit rate improved. 
+
 **Overview:** 
+
+The test works by creating a file with random number with 512 bytes generated with `random_bytes`.
+New syscalls cache_reset(), get_cache_hit(), get_cache_miss() are added to reset the cache and fetch cache_hit, cache_miss that are used to calculate the cache hit rate. 
+
+First, reset the cache by calling syscall `cache_reset()` and read sequentially. Close the file, calculate the cache hit rate by calling `get_cache_hit()`, `get_cache_miss()` and open it to read for the second time. If the new cache hit rate is greater than cache hit rate measured for a cold cache, test passes.  
 
 **Output:**: 
 
