@@ -72,7 +72,61 @@ First, reset the cache by calling syscall `cache_reset()` and read sequentially.
 
 **Output:**: 
 
+```C
+Copying tests/filesys/extended/my-test-1 to scratch partition...
+Copying tests/filesys/extended/tar to scratch partition...
+qemu -hda /tmp/Rp9GWVD8j9.dsk -hdb tmp.dsk -m 4 -net none -nographic -monitor null
+PiLo hda1
+Loading...........
+Kernel command line: -q -f extract run my-test-1
+Pintos booting with 4,088 kB RAM...
+382 pages available in kernel pool.
+382 pages available in user pool.
+Calibrating timer...  314,163,200 loops/s.
+hda: 1,008 sectors (504 kB), model "QM00001", serial "QEMU HARDDISK"
+hda1: 185 sectors (92 kB), Pintos OS kernel (20)
+hda2: 243 sectors (121 kB), Pintos scratch (22)
+hdb: 5,040 sectors (2 MB), model "QM00002", serial "QEMU HARDDISK"
+hdb1: 4,096 sectors (2 MB), Pintos file system (21)
+filesys: using hdb1
+scratch: using hda2
+Formatting file system...done.
+Boot complete.
+Extracting ustar archive from scratch device into file system...
+Putting 'my-test-1' into the file system...
+Putting 'tar' into the file system...
+Erasing ustar archive...
+Executing 'my-test-1':
+(my-test-1) begin
+(my-test-1) make "cache"
+(my-test-1) create "cache"
+(my-test-1) open "cache"
+(my-test-1) close "cache"
+(my-test-1) reset buffer
+(my-test-1) open "cache"
+(my-test-1) close "cache"
+(my-test-1) open "cache"
+(my-test-1) close "cache"
+(my-test-1) New hit rate is higher than old hit rate
+(my-test-1) end
+my-test-1: exit(0)
+Execution of 'my-test-1' complete.
+Timer: 62 ticks
+Thread: 0 idle ticks, 60 kernel ticks, 2 user ticks
+hdb1 (filesys): 93 reads, 562 writes
+hda2 (scratch): 242 reads, 2 writes
+Console: 1276 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...
+
+```
+
 **Result:** 
+
+```C
+PASS
+```
 
 **Kernel Bugs:** 
 
@@ -84,7 +138,7 @@ First, reset the cache by calling syscall `cache_reset()` and read sequentially.
 Test if clock algorithm works correctly by checking when files are evicted by artificially forcing the clock algorithm to evict blocks, and then checking the cache_miss and cache_hit rate
 
 **Overview:** 
-The test starts with filling the cache with 64 files of block size 512 generated with random_bytes. It is then filled completely, and 64 cache misses should be expected. After that, it will attempt to read the first entry put in (which should hit the cache), read a block that's not in the cache (which should cause a cache miss and evict the second entry), and then read the second again (which should cause another cache miss). If the new cache hit number is 1 and cache miss rate is 66, then the test passes. This test uses the same syscalls as the previous test.
+The test starts with filling the cache with 64 files of block size 512 generated with `random_bytes`. It is then filled completely, and 64 cache misses should be expected. After that, it will attempt to read the first entry put in (which should hit the cache), read a block that's not in the cache (which should cause a cache miss and evict the second entry), and then read the second again (which should cause another cache miss). If the new cache hit number is 1 and cache miss rate is 66, then the test passes. This test uses the same syscalls as the previous test.
 
 **Output:** 
 
