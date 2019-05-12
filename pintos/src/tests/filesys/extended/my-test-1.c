@@ -111,27 +111,27 @@ static bool frac_greater_than(int num_a, int denom_a, int num_b, int denom_b)
 }
 
 /* Return the greatest common divisor of A and B */
-static int gcd(int a, int b)  
+static int gcd(int a, int b)
 {  
-  /* 0 is divisible by everything */  
-  if (a == 0 || b == 0)  
-    return 0;  
+  /* 0 is divisible by everything */
+  if (a == 0 || b == 0)
+    return 0;
 
-  /* Base case */     
-  if (a == b)  
-    return a;  
+  /* Base case */
+  if (a == b)
+    return a;
 
-  /* a is larger */  
+  /* a is larger */
   if (a > b) {
-    return gcd(a - b, b); 
+    return gcd(a - b, b);
   } else {
     /* b is larger */
     return gcd(a, b - a);
-  }   
-}  
-  
-/* Return the least common multiple of A and B */  
-static int lcm(int a, int b)  
-{  
-  return (a * b) / gcd(a, b);  
+  }
+}
+
+/* Return the least common multiple of A and B */
+static int lcm(int a, int b)
+{
+  return (a * b) / gcd(a, b);
 }

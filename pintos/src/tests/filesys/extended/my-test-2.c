@@ -2,11 +2,14 @@
 
 #include <random.h>
 #include <syscall.h>
+#include <stdio.h>
 #include "tests/lib.h"
 #include "tests/main.h"
 
 #define BLOCK_SIZE 512
 #define BLOCK_COUNT 64
+
+char *file_name;
 
 char buf[BLOCK_SIZE];
 
@@ -29,7 +32,6 @@ void
 test_main(void)
 {
   int fd;
-  char *file_name;
   char *file_names[BLOCK_COUNT];
   random_init (0);
   random_bytes (buf, sizeof buf);
@@ -106,4 +108,6 @@ test_main(void)
     msg("Did not miss on new file")
   }
 
+  filesys_remove("evict");
+  for (i)
 }
