@@ -56,7 +56,7 @@ Nick started the base of task 2 and Arjun finished it.
 
 ## Student Testing Report
 
-### Test 1: <my-test-1>:
+### Test 1: my-test-1:
 
 **Description:** 
 
@@ -134,7 +134,7 @@ The potential kernel bugs are 1) if the file fails open properly by obtaining a 
 
 ---
 
-### Test 2: <enter test name here>:
+### Test 2: my-test-2:
 
 **Description:** 
 Test if clock algorithm works correctly by checking when files are evicted by artificially forcing the clock algorithm to evict blocks, and then checking the cache_miss and cache_hit rate
