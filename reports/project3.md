@@ -146,7 +146,9 @@ The test starts with filling the cache with 64 files of block size 512 generated
 
 **Result:** 
 
+
 **Kernel Bugs:** 
+The potential kernel bugs are 1) if the file fails open properly by obtaining a valid file descriptor which will be used for `write` and `close` and 2) if zero division error occurs when calculating cache hit rate for the second time. If total of new cache hit and miss rate equals -1, it will cause kernel to panic with division error.  
 
 ---
 
