@@ -2,107 +2,121 @@
 
 #include <random.h>
 #include <syscall.h>
-#include <stdio.h>
 #include "tests/lib.h"
 #include "tests/main.h"
 
 #define BLOCK_SIZE 512
-#define BLOCK_COUNT 64
+#define BLOCK_COUNT 32
+
+const char *file_name1 = "myfile1";
+const char *file_name2 = "myfile2";
+const char *file_name3 = "myfile3";
 
 char buf[BLOCK_SIZE];
 
-static void read_bytes(int fd);
-
-/*random file name*/
+static void read_bytes(int fd, int wd);
 
 /* Read file */
 static void
-read_bytes(int f)
+read_bytes(int f, int w)
 {
+  int i = 0;
   size_t ret_val;
-  ret_val = read (f, buf, BLOCK_SIZE);
+  for (; i < BLOCK_COUNT; i++) {
+    ret_val = read (f, buf, BLOCK_SIZE);
+    if (ret_val != BLOCK_SIZE) {
+      if (w == 1) {
+        fail ("read %zu bytes in \"%s\" returned %zu",
+              BLOCK_SIZE, file_name1, ret_val);
+      } else if (w == 2) {
+        fail ("read %zu bytes in \"%s\" returned %zu",
+              BLOCK_SIZE, file_name2, ret_val);
+      } else {
+        fail ("read %zu bytes in \"%s\" returned %zu",
+              BLOCK_SIZE, file_name3, ret_val);
+      }
+    }
+  }
 }
 
 void
 test_main(void)
 {
   int fd;
-
-  char *first_name;
-  char *second_name;
+  size_t i;
   random_init (0);
   random_bytes (buf, sizeof buf);
 
-  /* Create 64 files with different names, and random contents to fill up cache*/
-  msg ("make 64");
-  size_t i;
+  /* ===== Create input file 1 =====*/
+  msg ("make \"%s\"", file_name1);
+  CHECK (create (file_name1, 0), "create \"%s\"", file_name1);
+  CHECK ((fd = open (file_name1)) > 1, "open \"%s\"", file_name1);
   for (i=0; i < BLOCK_COUNT; i++) {
-    char *file_name = "";
-    snprintf(file_name, 5, "file%zu", i);
-    CHECK (create (file_name, 0), "create \"%s\"", file_name);
-    CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
-
     size_t ret_val;
     ret_val = write (fd, buf, BLOCK_SIZE);
-    if (ret_val != BLOCK_SIZE) {
-      fail ("write %zu bytes in \"%s\" returned %zu", BLOCK_SIZE, file_name, ret_val);
+      if (ret_val != BLOCK_SIZE)
+        fail ("write %zu bytes in \"%s\" returned %zu",
+              BLOCK_SIZE, file_name1, ret_val);
     }
-    close (fd);
-  }
-  msg ("close 64");
-
-  if(get_cache_miss() == 64) {
-    msg("Correctly filled cold buffer to brim");
-  } else {
-    msg("Error filling cache");
-  }
-
-  /* Open first file to read, should get a hit */
-  first_name = "file1";
-  CHECK ((fd = open (first_name)) > 1, "open \"%s\"", first_name);
-  read_bytes(fd);
   close (fd);
-  msg ("close \"%s\"", first_name);
-  // Output if correctly
-  if(get_cache_hit() == 1) {
-    msg("Correctly got cache hit");
-  } else {
-    msg("Did not get cache hit");
-  }
+  msg ("close \"%s\"", file_name1);
 
-  /* Open a new file, should evict second file */
-  int prev_cache_miss = get_cache_miss();
-  char *evict_file;
-  evict_file = "evict";
-  CHECK (create (evict_file, 0), "create \"%s\"", evict_file);
-  CHECK ((fd = open (evict_file)) > 1, "open \"%s\"", evict_file);
-
-  size_t ret_val;
-  ret_val = write (fd, buf, BLOCK_SIZE);
-  if (ret_val != BLOCK_SIZE) {
-    fail ("write %zu bytes in \"%s\" returned %zu", BLOCK_SIZE, evict_file, ret_val);
-  }
-  CHECK ((fd = open (evict_file)) > 1, "open \"%s\"", evict_file);
-  read_bytes(fd);
+  /* ===== Create input file 2 ====== */
+  msg ("make \"%s\"", file_name2);
+  CHECK (create (file_name2, 0), "create \"%s\"", file_name2);
+  CHECK ((fd = open (file_name2)) > 1, "open \"%s\"", file_name2);
+  for (i=0; i < BLOCK_COUNT; i++) {
+    size_t ret_val;
+    ret_val = write (fd, buf, BLOCK_SIZE);
+      if (ret_val != BLOCK_SIZE)
+        fail ("write %zu bytes in \"%s\" returned %zu",
+              BLOCK_SIZE, file_name2, ret_val);
+    }
   close (fd);
+  msg ("close \"%s\"", file_name2);
 
-  if (get_cache_miss() == prev_cache_miss + 1) {
-    msg("Correctly brought in new file to cache");
-  } else {
-    msg("Did not miss on new file");
-  }
-
-  /* Try to read second file and see if it is properly evicted */
-  prev_cache_miss = get_cache_miss();
-  second_name = "file2";
-  CHECK ((fd = open (second_name)) > 1, "open \"%s\"", second_name);
-  read_bytes(fd);
+  /* ===== Create input file 3 =====*/
+  msg ("make \"%s\"", file_name3);
+  CHECK (create (file_name3, 0), "create \"%s\"", file_name3);
+  CHECK ((fd = open (file_name3)) > 1, "open \"%s\"", file_name3);
+  for (i=0; i < BLOCK_COUNT; i++) {
+    size_t ret_val;
+    ret_val = write (fd, buf, BLOCK_SIZE);
+      if (ret_val != BLOCK_SIZE)
+        fail ("write %zu bytes in \"%s\" returned %zu",
+              BLOCK_SIZE, file_name3, ret_val);
+    }
   close (fd);
+  msg ("close \"%s\"", file_name3);
 
-  if (get_cache_miss() == prev_cache_miss + 1) {
-    msg("Correctly brought in new file to cache");
-  } else {
-    msg("Did not miss on new file");
+  /* Read file 2, should be in cache and get a cache hit*/
+  msg ("read \"%s\"", file_name2);
+  CHECK ((fd = open (file_name2)) > 1, "open \"%s\"", file_name2);
+  read_bytes(fd, 2);
+  close (fd);
+  msg ("close \"%s\"", file_name2);
+  int first_hit = get_cache_miss();
+  if (first_hit > 0) {
+    msg("Correctly hit cache on read");
   }
 
+  /* Read file 1, should not be in cache and get a cache miss*/
+  msg ("read \"%s\"", file_name1);
+  int currentMisses = get_cache_miss();
+  CHECK ((fd = open (file_name1)) > 1, "open \"%s\"", file_name1);
+  read_bytes(fd, 1);
+  close (fd);
+  msg ("close \"%s\"", file_name1);
+
+  // Check if first file correctly hit cache
+  int second_hit = get_cache_miss();
+  if (second_hit > currentMisses) {
+    msg("Correctly fetched from disk");
+    currentMisses = second_hit;
+  }
+
+
+  remove("myfile1");
+  remove("myfile2");
+  remove("myfile3");
 }
