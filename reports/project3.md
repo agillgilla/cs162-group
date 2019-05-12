@@ -72,7 +72,7 @@ First, reset the cache by calling syscall `cache_reset()` and read sequentially.
 
 **Output:**: 
 
-```C
+```
 Copying tests/filesys/extended/my-test-1 to scratch partition...
 Copying tests/filesys/extended/tar to scratch partition...
 qemu -hda /tmp/Rp9GWVD8j9.dsk -hdb tmp.dsk -m 4 -net none -nographic -monitor null
@@ -124,7 +124,7 @@ Powering off...
 
 **Result:** 
 
-```C
+```
 PASS
 ```
 
@@ -137,40 +137,75 @@ The potential kernel bugs are 1) if the file fails open properly by obtaining a 
 ### Test 2: my-test-2:
 
 **Description:** 
-Test if clock algorithm works correctly by checking when files are evicted by artificially forcing the clock algorithm to evict blocks, and then checking the cache_miss and cache_hit rate
+Test if clock algorithm works correctly by checking when files are evicted by artificially forcing the clock algorithm to evict blocks, and then checking the `cache_miss` and `cache_hit` rate.
 
 **Overview:** 
-The test starts with filling the cache with 64 files of block size 512 generated with `random_bytes`. It is then filled completely, and 64 cache misses should be expected. After that, it will attempt to read the first entry put in (which should hit the cache), read a block that's not in the cache (which should cause a cache miss and evict the second entry), and then read the second again (which should cause another cache miss). If the new cache hit number is 1 and cache miss rate is 66, then the test passes. This test uses the same syscalls as the previous test.
+The test starts with filling the cache with 3 files of 32 blocks, each block of size 512 bytes generated with `random_bytes`. It is then filled completely by the first 2 files, and the third file should evict the first file. The second file is then read, and a check is implemented in order to evaluate whether the cache_hit rate has increased, indicating that the second file is indeed still in the cache. Then, the first file is read, and a check is implemented in order to evaluate whether the cache_miss rate has increased, indicating that the first file has indeed been evicted by the third file.
 
 **Output:** 
-Acceptable output:
-  (my-test-2) begin
-  (my-test-2) make 64
-  (my-test-2) close 64
-  (my-test-2) Correctly filled cold buffer to brimr
-  (my-test-2) Correctly got cache hit
-  (my-test-2) Correctly brought in new file to cache
-  (my-test-2) Correctly brought in new file to cache
-  (my-test-2) end
-Differences in `diff -u' format:
-  (my-test-2) begin
-  (my-test-2) make 64
-- (my-test-2) close 64
-- (my-test-2) Correctly filled cold buffer to brimr
-- (my-test-2) Correctly got cache hit
-- (my-test-2) Correctly brought in new file to cache
-- (my-test-2) Correctly brought in new file to cache
-- (my-test-2) end
-+ Page fault at 0x804acae: rights violation error writing page in user context.
-+ my-test-1: dying due to interrupt 0x0e (#PF Page-Fault Exception).
-+ Interrupt 0x0e (#PF Page-Fault Exception) at eip=0x8048d5e
-+  cr2=0804acae error=00000007
-+  eax=bfffff44 ebx=00000066 ecx=0804acaf edx=0804acae
-+  esi=00000000 edi=0804ac00 esp=bffffeb8 ebp=bfffff8c
-+  cs=001b ds=0023 es=0023 ss=0023
+```
+Copying tests/filesys/extended/my-test-2 to scratch partition...
+Copying tests/filesys/extended/tar to scratch partition...
+qemu -hda /tmp/xnLQjhlsNb.dsk -hdb tmp.dsk -m 4 -net none -nographic -monitor null
+PiLo hda1
+Loading...........
+Kernel command line: -q -f extract run my-test-2
+Pintos booting with 4,088 kB RAM...
+382 pages available in kernel pool.
+382 pages available in user pool.
+Calibrating timer...  419,020,800 loops/s.
+hda: 1,008 sectors (504 kB), model "QM00001", serial "QEMU HARDDISK"
+hda1: 185 sectors (92 kB), Pintos OS kernel (20)
+hda2: 243 sectors (121 kB), Pintos scratch (22)
+hdb: 5,040 sectors (2 MB), model "QM00002", serial "QEMU HARDDISK"
+hdb1: 4,096 sectors (2 MB), Pintos file system (21)
+filesys: using hdb1
+scratch: using hda2
+Formatting file system...done.
+Boot complete.
+Extracting ustar archive from scratch device into file system...
+Putting 'my-test-2' into the file system...
+Putting 'tar' into the file system...
+Erasing ustar archive...
+Executing 'my-test-2':
+(my-test-2) begin
+(my-test-2) make "myfile1"
+(my-test-2) create "myfile1"
+(my-test-2) open "myfile1"
+(my-test-2) close "myfile1"
+(my-test-2) make "myfile2"
+(my-test-2) create "myfile2"
+(my-test-2) open "myfile2"
+(my-test-2) close "myfile2"
+(my-test-2) make "myfile3"
+(my-test-2) create "myfile3"
+(my-test-2) open "myfile3"
+(my-test-2) close "myfile3"
+(my-test-2) read "myfile2"
+(my-test-2) open "myfile2"
+(my-test-2) close "myfile2"
+(my-test-2) Correctly hit cache on read
+(my-test-2) read "myfile1"
+(my-test-2) open "myfile1"
+(my-test-2) close "myfile1"
+(my-test-2) Correctly fetched from disk
+(my-test-2) end
+my-test-2: exit(0)
+Execution of 'my-test-2' complete.
+Timer: 65 ticks
+Thread: 0 idle ticks, 61 kernel ticks, 4 user ticks
+hdb1 (filesys): 97 reads, 603 writes
+hda2 (scratch): 242 reads, 2 writes
+Console: 1570 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...
+```
 
 **Result:** 
-The test is failing due to a page fault, due to restrictions in time, we did not manage to properly debug this test
+```
+PASS
+```
 
 **Kernel Bugs:** 
 The potential kernel bugs are 1) if the file fails open properly by obtaining a valid file descriptor which will be used for `write` and `close` and 2) if zero division error occurs when calculating cache hit rate for the second time. If total of new cache hit and miss rate equals -1, it will cause kernel to panic with division error.  
