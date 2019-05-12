@@ -39,7 +39,7 @@ We also took into account Jason's recommendation of storing the current working 
 
 ## Reflection
 
-### Task 1
+### Task 1 
 
 Emma started task 1 with the read function, and Alex fixed her read/flush functions and implemented the write function of it, but Arjun ended up rewriting most of it.
 
@@ -56,7 +56,7 @@ Nick started the base of task 2 and Arjun finished it.
 
 ## Student Testing Report
 
-### Test 1: <enter test name here>:
+### Test 1: <my-test-1>:
 
 **Description:** 
 
@@ -72,9 +72,65 @@ First, reset the cache by calling syscall `cache_reset()` and read sequentially.
 
 **Output:**: 
 
+```C
+Copying tests/filesys/extended/my-test-1 to scratch partition...
+Copying tests/filesys/extended/tar to scratch partition...
+qemu -hda /tmp/Rp9GWVD8j9.dsk -hdb tmp.dsk -m 4 -net none -nographic -monitor null
+PiLo hda1
+Loading...........
+Kernel command line: -q -f extract run my-test-1
+Pintos booting with 4,088 kB RAM...
+382 pages available in kernel pool.
+382 pages available in user pool.
+Calibrating timer...  314,163,200 loops/s.
+hda: 1,008 sectors (504 kB), model "QM00001", serial "QEMU HARDDISK"
+hda1: 185 sectors (92 kB), Pintos OS kernel (20)
+hda2: 243 sectors (121 kB), Pintos scratch (22)
+hdb: 5,040 sectors (2 MB), model "QM00002", serial "QEMU HARDDISK"
+hdb1: 4,096 sectors (2 MB), Pintos file system (21)
+filesys: using hdb1
+scratch: using hda2
+Formatting file system...done.
+Boot complete.
+Extracting ustar archive from scratch device into file system...
+Putting 'my-test-1' into the file system...
+Putting 'tar' into the file system...
+Erasing ustar archive...
+Executing 'my-test-1':
+(my-test-1) begin
+(my-test-1) make "cache"
+(my-test-1) create "cache"
+(my-test-1) open "cache"
+(my-test-1) close "cache"
+(my-test-1) reset buffer
+(my-test-1) open "cache"
+(my-test-1) close "cache"
+(my-test-1) open "cache"
+(my-test-1) close "cache"
+(my-test-1) New hit rate is higher than old hit rate
+(my-test-1) end
+my-test-1: exit(0)
+Execution of 'my-test-1' complete.
+Timer: 62 ticks
+Thread: 0 idle ticks, 60 kernel ticks, 2 user ticks
+hdb1 (filesys): 93 reads, 562 writes
+hda2 (scratch): 242 reads, 2 writes
+Console: 1276 characters output
+Keyboard: 0 keys pressed
+Exception: 0 page faults
+Powering off...
+
+```
+
 **Result:** 
 
+```C
+PASS
+```
+
 **Kernel Bugs:** 
+
+The potential kernel bugs are 1) if the file fails open properly by obtaining a valid file descriptor which will be used for write and close and 2) if zero division error occurs when calculating cache hit rate for the second time. If total of new cache hit and miss rate equals -1, it will cause kernel to panic with division error.  
 
 ---
 

@@ -15,7 +15,6 @@ static void read_bytes(int fd);
 static int lcm(int a, int b);
 static int gcd(int a, int b);
 static bool frac_greater_than(int num_a, int denom_a, int num_b, int denom_b);
-// int get_hit_rate(void);
 
 /* Read file */
 static void
@@ -84,6 +83,8 @@ test_main(void)
 
   int second_total = second_hit + second_miss;
   int second_hit_rate = ((second_hit - first_hit) / (second_total - first_total + 1)) * 100;
+
+  remove("cache");
 
   if (frac_greater_than(second_hit, second_total, first_hit, first_total)) {
     // msg ("New hit rate is higher than old hit rate");
