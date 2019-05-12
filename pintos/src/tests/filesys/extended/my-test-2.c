@@ -37,8 +37,8 @@ test_main(void)
   msg ("make 64");
   size_t i;
   for (i=0; i < BLOCK_COUNT; i++) {
-    char *file_name;
-    snprintf(file_name, "file%zu", 5, i);
+    char *file_name = "";
+    snprintf(file_name, 5, "file%zu", i);
     CHECK (create (file_name, 0), "create \"%s\"", file_name);
     CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
 
@@ -59,10 +59,10 @@ test_main(void)
 
   /* Open first file to read, should get a hit */
   first_name = "file1";
-  CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
+  CHECK ((fd = open (first_name)) > 1, "open \"%s\"", first_name);
   read_bytes(fd);
   close (fd);
-  msg ("close \"%s\"", file_name);
+  msg ("close \"%s\"", first_name);
   // Output if correctly
   if(get_cache_hit() == 1) {
     msg("Correctly got cache hit");
@@ -71,38 +71,38 @@ test_main(void)
   }
 
   /* Open a new file, should evict second file */
-  int prev_cache_miss = get_cache_miss;
+  int prev_cache_miss = get_cache_miss();
   char *evict_file;
   evict_file = "evict";
-  CHECK (create (file_name, 0), "create \"%s\"", file_name);
-  CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
+  CHECK (create (evict_file, 0), "create \"%s\"", evict_file);
+  CHECK ((fd = open (evict_file)) > 1, "open \"%s\"", evict_file);
 
   size_t ret_val;
   ret_val = write (fd, buf, BLOCK_SIZE);
   if (ret_val != BLOCK_SIZE) {
-    fail ("write %zu bytes in \"%s\" returned %zu", BLOCK_SIZE, file_name, ret_val);
+    fail ("write %zu bytes in \"%s\" returned %zu", BLOCK_SIZE, evict_file, ret_val);
   }
-  CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
+  CHECK ((fd = open (evict_file)) > 1, "open \"%s\"", evict_file);
   read_bytes(fd);
   close (fd);
 
   if (get_cache_miss() == prev_cache_miss + 1) {
-    msg("Correctly brought in new file to cache")
+    msg("Correctly brought in new file to cache");
   } else {
-    msg("Did not miss on new file")
+    msg("Did not miss on new file");
   }
 
   /* Try to read second file and see if it is properly evicted */
   prev_cache_miss = get_cache_miss();
   second_name = "file2";
-  CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
+  CHECK ((fd = open (second_name)) > 1, "open \"%s\"", second_name);
   read_bytes(fd);
   close (fd);
 
   if (get_cache_miss() == prev_cache_miss + 1) {
-    msg("Correctly brought in new file to cache")
+    msg("Correctly brought in new file to cache");
   } else {
-    msg("Did not miss on new file")
+    msg("Did not miss on new file");
   }
 
 }
