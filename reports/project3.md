@@ -56,7 +56,7 @@ Nick started the base of task 2 and Arjun finished it.
 
 ## Student Testing Report
 
-### Test 1: <my-test-1>:
+### Test 1: my-test-1:
 
 **Description:** 
 
@@ -66,7 +66,7 @@ First, read from a file and measure cache hit rate for a cold cache. Then read t
 **Overview:** 
 
 The test works by creating a file with random number with 512 bytes generated with `random_bytes`.
-New syscalls cache_reset(), get_cache_hit(), get_cache_miss() are added to reset the cache and fetch cache_hit, cache_miss that are used to calculate the cache hit rate. 
+New syscalls `cache_reset()`, `get_cache_hit()`, `get_cache_miss()` are added to reset the cache and fetch `cache_hit`, `cache_miss` that are used to calculate the cache hit rate. 
 
 First, reset the cache by calling syscall `cache_reset()` and read sequentially. Close the file, calculate the cache hit rate by calling `get_cache_hit()`, `get_cache_miss()` and open it to read for the second time. If the new cache hit rate is greater than cache hit rate measured for a cold cache, test passes.  
 
@@ -130,11 +130,11 @@ PASS
 
 **Kernel Bugs:** 
 
-The potential kernel bugs are 1) if the file fails open properly by obtaining a valid file descriptor which will be used for write and close and 2) if zero division error occurs when calculating cache hit rate for the second time. If total of new cache hit and miss rate equals -1, it will cause kernel to panic with division error.  
+The potential kernel bugs are 1) if the file fails open properly by obtaining a valid file descriptor which will be used for `write` and `close` and 2) if zero division error occurs when calculating cache hit rate for the second time. If total of new cache hit and miss rate equals -1, it will cause kernel to panic with division error.  
 
 ---
 
-### Test 2: <enter test name here>:
+### Test 2: my-test-2:
 
 **Description:** 
 Test if clock algorithm works correctly by checking when files are evicted by artificially forcing the clock algorithm to evict blocks, and then checking the cache_miss and cache_hit rate
@@ -146,12 +146,15 @@ The test starts with filling the cache with 64 files of block size 512 generated
 
 **Result:** 
 
+
 **Kernel Bugs:** 
+The potential kernel bugs are 1) if the file fails open properly by obtaining a valid file descriptor which will be used for `write` and `close` and 2) if zero division error occurs when calculating cache hit rate for the second time. If total of new cache hit and miss rate equals -1, it will cause kernel to panic with division error.  
 
 ---
 
 ### Review:
 
+Emma: I was unfamiliar with writing test cases, so I had to go through the provided test cases and learned which functions could be used in the test. Especially for this case, I had to implement new syscalls by editing few syscall files in pintos, because functions that are in the user program cannot be called. Besides writing a test file, I learned a lot from editing files from different directories to understand how syscalls and tests run. 
 
 
 ## Code Quality
