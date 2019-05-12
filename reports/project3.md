@@ -39,7 +39,7 @@ We also took into account Jason's recommendation of storing the current working 
 
 ## Reflection
 
-### Task 1
+### Task 1 
 
 Emma started task 1 with the read function, and Alex fixed her read/flush functions and implemented the write function of it, but Arjun ended up rewriting most of it.
 
@@ -56,7 +56,7 @@ Nick started the base of task 2 and Arjun finished it.
 
 ## Student Testing Report
 
-### Test 1: <enter test name here>:
+### Test 1: <my-test-1>:
 
 **Description:** 
 
@@ -129,6 +129,8 @@ PASS
 ```
 
 **Kernel Bugs:** 
+
+The potential kernel bugs are 1) if the file fails open properly by obtaining a valid file descriptor which will be used for write and close and 2) if zero division error occurs when calculating cache hit rate for the second time. If total of new cache hit and miss rate equals -1, it will cause kernel to panic with division error.  
 
 ---
 
