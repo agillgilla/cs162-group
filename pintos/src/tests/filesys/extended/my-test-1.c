@@ -12,6 +12,9 @@ const char *file_name = "cache";
 char buf[BLOCK_SIZE];
 
 static void read_bytes(int fd);
+static int lcm(int a, int b);
+static int gcd(int a, int b);
+static bool frac_greater_than(int num_a, int denom_a, int num_b, int denom_b);
 // int get_hit_rate(void);
 
 /* Read file */
@@ -65,7 +68,9 @@ test_main(void)
 
   /* Caculate cache hit rate for first round */
   int first_hit = get_cache_hit();
-  int first_total = first_hit + get_cache_miss();
+  int first_miss = get_cache_miss();
+  //printf("First miss: %d\n", first_miss);
+  int first_total = first_hit + first_miss;
   int first_hit_rate = (first_hit / first_total + 1) * 100;
 
   /* Open file to read for the second time */
@@ -76,13 +81,58 @@ test_main(void)
   msg ("close \"%s\"", file_name);
 
   /* Caculate cache hit rate for second round */
-  int second_hit = get_cache_hit();
-  int second_total = second_hit + get_cache_miss();
+  int second_hit = get_cache_hit() - first_hit;
+  int second_miss = get_cache_miss() - first_miss;
+  //printf("Second miss: %d\n", second_miss);
+  int second_total = second_hit + second_miss;
   int second_hit_rate = ((second_hit - first_hit) / (second_total - first_total + 1)) * 100;
 
-  if (second_hit_rate > first_hit_rate) {
+  if (frac_greater_than(second_hit, second_total, first_hit, first_total)) {
     // msg ("New hit rate is higher than old hit rate");
     msg ("New hit rate is higher than old hit rate");
 
   }
+}
+
+/* Returns true if fraction A is greater than fraction
+   B.  Requres args: numerator of A, denominator of A,
+   numerator of B, denominator of B */
+static bool frac_greater_than(int num_a, int denom_a, int num_b, int denom_b)
+{
+  printf("Comparing %d/%d > %d/%d\n", num_a, denom_a, num_b, denom_b);
+  int common_denom = lcm(denom_a, denom_b);
+
+  int a_multiplier = common_denom / denom_a;
+  int b_multiplier = common_denom / denom_b;
+
+  int new_num_a = a_multiplier * num_a;
+  int new_num_b = b_multiplier * num_b;
+
+  return new_num_a > new_num_b;
+}
+
+/* Return the greatest common divisor of A and B */
+static int gcd(int a, int b)  
+{  
+  /* 0 is divisible by everything */  
+  if (a == 0 || b == 0)  
+    return 0;  
+
+  /* Base case */     
+  if (a == b)  
+    return a;  
+
+  /* a is larger */  
+  if (a > b) {
+    return gcd(a - b, b); 
+  } else {
+    /* b is larger */
+    return gcd(a, b - a);
+  }   
+}  
+  
+/* Return the least common multiple of A and B */  
+static int lcm(int a, int b)  
+{  
+  return (a * b) / gcd(a, b);  
 }
