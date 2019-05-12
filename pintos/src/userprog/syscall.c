@@ -125,7 +125,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
     }
   }
-
+  /* Buffer cache syscalls */
   if (args[0] == SYS_CACHE_RESET) {
     cache_reset();
   } else if (args[0] == SYS_GET_CACHE_HIT) {
