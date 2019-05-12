@@ -152,6 +152,7 @@ The test starts with filling the cache with 64 files of block size 512 generated
 
 ### Review:
 
+Emma: I was unfamiliar with writing test cases so I had to go through the provided test cases and learned which functions could be used in the test. Especially for this case, I had to implement new syscalls by editing few syscall files in pitos, because functions that are in the user program cannot be called. Besides writing a test file, I learned a lot from editing files from different directories to understand how syscalls and tests run. 
 
 
 ## Code Quality
