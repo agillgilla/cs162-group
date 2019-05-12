@@ -84,7 +84,8 @@ First, reset the cache by calling syscall `cache_reset()` and read sequentially.
 Test if clock algorithm works correctly by checking when files are evicted by artificially forcing the clock algorithm to evict blocks, and then checking the cache_miss and cache_hit rate
 
 **Overview:** 
-The test starts with filling the cache with 64 files of block size 512 generated with random_bytes. It is then filled completely, and 64 cache misses should be expected. After that, it will attempt to read the first entry put in (which should hit the cache), read a block that's not in the cache (which should cause a cache miss and evict the second entry), and then read the second again (which should cause another cache miss). If the new cache hit number is 1 and cache miss rate is 66, then the test passes.
+The test starts with filling the cache with 64 files of block size 512 generated with random_bytes. It is then filled completely, and 64 cache misses should be expected. After that, it will attempt to read the first entry put in (which should hit the cache), read a block that's not in the cache (which should cause a cache miss and evict the second entry), and then read the second again (which should cause another cache miss). If the new cache hit number is 1 and cache miss rate is 66, then the test passes. This test uses the same syscalls as the previous test.
+
 **Output:** 
 
 **Result:** 
