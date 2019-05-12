@@ -113,7 +113,7 @@ static bool frac_greater_than(int num_a, int denom_a, int num_b, int denom_b)
 
 /* Return the greatest common divisor of A and B */
 static int gcd(int a, int b)
-{  
+{
   /* 0 is divisible by everything */
   if (a == 0 || b == 0)
     return 0;

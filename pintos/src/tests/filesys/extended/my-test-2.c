@@ -9,8 +9,6 @@
 #define BLOCK_SIZE 512
 #define BLOCK_COUNT 64
 
-char *file_name;
-
 char buf[BLOCK_SIZE];
 
 static void read_bytes(int fd);
@@ -23,16 +21,15 @@ read_bytes(int f)
 {
   size_t ret_val;
   ret_val = read (f, buf, BLOCK_SIZE);
-  if (ret_val != BLOCK_SIZE) {
-    fail ("read %zu bytes in \"%s\" returned %zu", BLOCK_SIZE, file_name, ret_val);
-  }
 }
 
 void
 test_main(void)
 {
   int fd;
-  char *file_names[BLOCK_COUNT];
+
+  char *first_name;
+  char *second_name;
   random_init (0);
   random_bytes (buf, sizeof buf);
 
@@ -40,9 +37,8 @@ test_main(void)
   msg ("make 64");
   size_t i;
   for (i=0; i < BLOCK_COUNT; i++) {
-    sprintf(file_name, "%zu", i);
-    strcpy(file_names[i], file_name);
-
+    char *file_name;
+    snprintf(file_name, "file%zu", 5, i);
     CHECK (create (file_name, 0), "create \"%s\"", file_name);
     CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
 
@@ -55,14 +51,14 @@ test_main(void)
   }
   msg ("close 64");
 
-  if(get_cache_miss == 64) {
+  if(get_cache_miss() == 64) {
     msg("Correctly filled cold buffer to brim");
   } else {
     msg("Error filling cache");
   }
 
   /* Open first file to read, should get a hit */
-  strcpy(file_name, file_names[0]);
+  first_name = "file1";
   CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
   read_bytes(fd);
   close (fd);
@@ -75,8 +71,9 @@ test_main(void)
   }
 
   /* Open a new file, should evict second file */
-  int prev_cache_miss = get_cache_miss();
-  strcpy(file_name, "evict");
+  int prev_cache_miss = get_cache_miss;
+  char *evict_file;
+  evict_file = "evict";
   CHECK (create (file_name, 0), "create \"%s\"", file_name);
   CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
 
@@ -97,7 +94,7 @@ test_main(void)
 
   /* Try to read second file and see if it is properly evicted */
   prev_cache_miss = get_cache_miss();
-  strcpy(file_name, file_names[1]);
+  second_name = "file2";
   CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
   read_bytes(fd);
   close (fd);
@@ -108,6 +105,4 @@ test_main(void)
     msg("Did not miss on new file")
   }
 
-  filesys_remove("evict");
-  for (i)
 }
