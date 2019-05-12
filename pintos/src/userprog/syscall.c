@@ -129,9 +129,9 @@ syscall_handler (struct intr_frame *f UNUSED)
   if (args[0] == SYS_CACHE_RESET) {
     cache_reset();
   } else if (args[0] == SYS_GET_CACHE_HIT) {
-    get_cache_hit();
+    f->eax = get_cache_hit();
   } else if (args[0] == SYS_GET_CACHE_MISS) {
-    get_cache_miss();
+    f->eax = get_cache_miss();
   }
   /* File syscalls with file as input */
   if (args[0] == SYS_FILESIZE) {

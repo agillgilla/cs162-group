@@ -69,11 +69,9 @@ test_main(void)
   /* Caculate cache hit rate for first round */
   int first_hit = get_cache_hit();
   int first_miss = get_cache_miss();
-  //printf("First miss: %d\n", first_miss);
   int first_total = first_hit + first_miss;
   int first_hit_rate = (first_hit / first_total + 1) * 100;
 
-  /* Open file to read for the second time */
   CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
   read_bytes(fd);
 
@@ -83,14 +81,15 @@ test_main(void)
   /* Caculate cache hit rate for second round */
   int second_hit = get_cache_hit() - first_hit;
   int second_miss = get_cache_miss() - first_miss;
-  //printf("Second miss: %d\n", second_miss);
+
   int second_total = second_hit + second_miss;
   int second_hit_rate = ((second_hit - first_hit) / (second_total - first_total + 1)) * 100;
 
   if (frac_greater_than(second_hit, second_total, first_hit, first_total)) {
     // msg ("New hit rate is higher than old hit rate");
     msg ("New hit rate is higher than old hit rate");
-
+  } else {
+    msg ("New hit rate is NOT higher than old hit rate");
   }
 }
 
@@ -99,7 +98,7 @@ test_main(void)
    numerator of B, denominator of B */
 static bool frac_greater_than(int num_a, int denom_a, int num_b, int denom_b)
 {
-  printf("Comparing %d/%d > %d/%d\n", num_a, denom_a, num_b, denom_b);
+  //printf("Comparing %d/%d > %d/%d\n", num_a, denom_a, num_b, denom_b);
   int common_denom = lcm(denom_a, denom_b);
 
   int a_multiplier = common_denom / denom_a;
